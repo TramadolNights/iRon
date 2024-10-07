@@ -104,8 +104,8 @@ class OverlayRelative : public Overlay
             std::vector<CarInfo> relatives;
             relatives.reserve( IR_MAX_CARS );
             const float ownClassEstLaptime = ir_session.cars[ir_session.driverCarIdx].carClassEstLapTime;
-            const int lapcountSelf = ir_CarIdxLap.getInt(ir_session.driverCarIdx);
-            const float SelfLapDistPct = ir_CarIdxLapDistPct.getFloat(ir_session.driverCarIdx);
+            const int lapcountSelf = ir_Lap.getInt();
+            const float selfLapDistPct = ir_LapDistPct.getFloat();
             const float SelfEstLapTime = ir_CarIdxEstTime.getFloat(ir_session.driverCarIdx);
             // Populate cars with the ones for which a relative/delta comparison is valid
             for( int i=0; i<IR_MAX_CARS; ++i )
@@ -127,15 +127,15 @@ class OverlayRelative : public Overlay
 
                     const float LClassRatio = car.carClassEstLapTime / ownClassEstLaptime;
                     const float CarEstLapTime = ir_CarIdxEstTime.getFloat(i) / LClassRatio;
-                    const float CarLapDistPct = ir_CarIdxLapDistPct.getFloat(i);
+                    const float carLapDistPct = ir_CarIdxLapDistPct.getFloat(i);
 
                     // Does the delta between us and the other car span across the start/finish line?
-                    const bool wrap = fabsf(CarLapDistPct - SelfLapDistPct) > 0.5f;
+                    const bool wrap = fabsf(carLapDistPct - selfLapDistPct) > 0.5f;
                     int wrappedSum = 0;
 
                     if( wrap )
                     {
-                        if (SelfLapDistPct > CarLapDistPct) {
+                        if (selfLapDistPct > carLapDistPct) {
                             delta = (CarEstLapTime - SelfEstLapTime) + ownClassEstLaptime;
                             lapDelta += -1;
                             wrappedSum = 1;
