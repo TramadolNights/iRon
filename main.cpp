@@ -46,6 +46,7 @@ SOFTWARE.
 #include "OverlayStandings.h"
 #include "OverlayDebug.h"
 #include "OverlayDDU.h"
+#include "OverlayRadar.h"
 #include "util.h"
 
 #ifdef _DEBUG
@@ -65,7 +66,8 @@ enum class Hotkey
     TargetLapDown,
     Inputs,
     Relative,
-    Cover
+    Cover,
+    Radar
 };
 
 static void registerHotkeys()
@@ -78,6 +80,7 @@ static void registerHotkeys()
     UnregisterHotKey( NULL, (int)Hotkey::Inputs );
     UnregisterHotKey( NULL, (int)Hotkey::Relative );
     UnregisterHotKey( NULL, (int)Hotkey::Cover );
+    UnregisterHotKey(NULL, (int)Hotkey::Radar );
 
     UINT vk, mod;
 
@@ -103,6 +106,9 @@ static void registerHotkeys()
 
     if( parseHotkey( g_cfg.getString("OverlayCover","toggle_hotkey","ctrl-4"),&mod,&vk) )
         RegisterHotKey( NULL, (int)Hotkey::Cover, mod, vk );
+
+    if (parseHotkey(g_cfg.getString("OverlayRadar", "toggle_hotkey", "ctrl-5"), &mod, &vk))
+        RegisterHotKey(NULL, (int)Hotkey::Radar, mod, vk);
 }
 
 static void handleConfigChange( vector<Overlay*> overlays, ConnectionStatus status )
@@ -217,6 +223,7 @@ int main()
     printf("    Toggle inputs overlay:        %s\n", g_cfg.getString("OverlayInputs","toggle_hotkey","").c_str() );
     printf("    Toggle relative overlay:      %s\n", g_cfg.getString("OverlayRelative","toggle_hotkey","").c_str() );
     printf("    Toggle cover overlay:         %s\n", g_cfg.getString("OverlayCover","toggle_hotkey","").c_str() );
+    printf("    Toggle radar overlay:         %s\n", g_cfg.getString("OverlayRadar", "toggle_hotkey", "").c_str());
     printf("\niRon will generate a file called \'config.json\' in its current directory. This file\n"\
            "stores your settings. You can edit the file at any time, even while iRon is running,\n"\
            "to customize your overlays and hotkeys.\n\n");
@@ -238,6 +245,7 @@ int main()
     overlays.push_back( new OverlayInputs(m_d3dDevice) );
     overlays.push_back( new OverlayStandings(m_d3dDevice, mapa ) );
     overlays.push_back( new OverlayDDU(m_d3dDevice) );
+    overlays.push_back(new OverlayRadar(m_d3dDevice) );
 
 #ifdef _DEBUG
     overlays.push_back( new OverlayDebug(m_d3dDevice) );
@@ -362,6 +370,9 @@ int main()
                         break;
                     case (int)Hotkey::Cover:
                         g_cfg.setBool( "OverlayCover", "enabled", !g_cfg.getBool("OverlayCover","enabled",true) );
+                        break;
+                    case (int)Hotkey::Radar:
+                        g_cfg.setBool("OverlayRadar", "enabled", !g_cfg.getBool("OverlayRadar", "enabled", true));
                         break;
 
                     case (int)Hotkey::TargetLapUp:
