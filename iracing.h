@@ -66,6 +66,7 @@ struct Car
     int             carNumber = 0;
     string          carNumberStr;
     string          carName;
+    int             carID;
     string          licenseStr;
     char            licenseChar = 'R';
     float           licenseSR = 0;

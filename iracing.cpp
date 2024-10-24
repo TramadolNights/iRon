@@ -530,6 +530,9 @@ ConnectionStatus ir_tick()
             sprintf(path, "DriverInfo:Drivers:CarIdx:{%d}CarScreenName:", carIdx);
             parseYamlStr(sessionYaml, path, car.carName);
 
+            sprintf(path, "DriverInfo:Drivers:CarIdx:{%d}CarID:", carIdx);
+            parseYamlInt(sessionYaml, path, &car.carID);
+
             car.qualy.position = 0;
             car.practice.position = 0;
             car.race.position = 0;

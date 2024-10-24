@@ -282,17 +282,7 @@ int main()
             handleConfigChange( overlays, status );
 
 #ifdef _DEBUG and _DEBUG_DUMP_VARS
-            // Raw-dogging the header because we are hardcore like that
-            const irsdk_header* pHeader = irsdk_getHeader();
-            if (pHeader != nullptr) {
-                const irsdk_varHeader* pVar;
-
-                for (int index = 0; index < pHeader->numVars; index++)
-                {
-                pVar = irsdk_getVarHeaderEntry(index);
-                    std::cout << pVar->name << "\n";
-                }
-            }
+            ir_printVariables();
 #endif
         }
 

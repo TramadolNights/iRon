@@ -29,10 +29,10 @@ SOFTWARE.
 #include "Config.h"
 #include "OverlayDebug.h"
 
-enum class radar_carLR {
-    car_undefined,
-    car_L,
-    car_R,
+static struct CarInfo {
+    int     carIdx = 0;
+    float   deltaMts = 0;
+    int     carID = 0;
 };
 
 class OverlayRadar : public Overlay
@@ -52,7 +52,7 @@ protected:
 
     virtual void onConfigChanged()
     {
-        // Width might have changed, reset tracker values
+
     }
 
     virtual void onUpdate()
@@ -63,30 +63,25 @@ protected:
         const float cornerRadius = g_cfg.getFloat(m_name, "corner_radius", 2.0f);
         const float markerWidth = g_cfg.getFloat(m_name, "marker_width", 20.0f);
 
-        struct CarInfo {
-            int     carIdx = 0;
-            float   deltaMts = 0;
-        };
-
         std::vector<CarInfo> radarInfo;
         radarInfo.reserve(IR_MAX_CARS);
         const float selfLapDistPct = ir_LapDistPct.getFloat();
         const float trackLength = ir_LapDist.getFloat() / selfLapDistPct;
-        const float carLength = g_cfg.getFloat(m_name, "car_length", 5.0f);
-        const float maxDist = g_cfg.getFloat(m_name, "maxDistance", 5.0f);
+        const float maxDist = g_cfg.getFloat(m_name, "max_distance", 5.0f);
 
+        // Populate RadarInfo
         for (int i = 0; i < IR_MAX_CARS; ++i)
         {
             const Car& car = ir_session.cars[i];
             const int lapcountCar = ir_CarIdxLap.getInt(i);
 
-            if (lapcountCar >= 0 && !car.isSpectator && car.carNumber >= 0 && !car.isPaceCar && !ir_CarIdxOnPitRoad.getBool(i) )
+            // Ignore pace car and cars in pits
+            if (lapcountCar >= 0 && !car.isSpectator && car.carNumber >= 0 && !car.isPaceCar && !ir_CarIdxOnPitRoad.getBool(i))
             {
                 const float carLapDistPct = ir_CarIdxLapDistPct.getFloat(i);
                 const bool wrap = fabsf(selfLapDistPct - carLapDistPct) > 0.5f;
-
                 float lapDistPctDelta = selfLapDistPct - carLapDistPct;
-                
+
                 if (wrap) {
                     if (selfLapDistPct > carLapDistPct) {
                         lapDistPctDelta -= 1;
@@ -96,7 +91,10 @@ protected:
                     }
                 }
                 const float deltaMts = lapDistPctDelta * trackLength;
-                radarInfo.emplace_back(i, deltaMts);
+
+                // TODO: do it by largest car length?
+                if (fabs(deltaMts) < maxDist + 5.0f)
+                    radarInfo.emplace_back(i, deltaMts, car.carID);
 
             }
         }
@@ -105,45 +103,60 @@ protected:
             [](const CarInfo& a, const CarInfo& b) {return a.deltaMts > b.deltaMts;});
 
         // Locate our driver's index in the new array, and nearest Ahead/Behind
-        int selfCarInfoIdx = -1;
-        int nearAhead, nearBehind;
+        int selfRadarInfoIdx = -1, nearAhead = -1, nearBehind = -1;
 
         for (int i = 0; i < (int)radarInfo.size(); ++i)
         {
-            if (radarInfo[i].carIdx == ir_session.driverCarIdx) {
-                selfCarInfoIdx = i;
+            const CarInfo ci = radarInfo[i];
+            if (ci.carIdx == ir_session.driverCarIdx)
+            {
+                selfRadarInfoIdx = i;
 
                 if (i > 0) {
-                    nearAhead = i - 1;
+                    nearBehind = i - 1;
                 }
-                if (i + 1 <= (int)radarInfo.size()) {
-                    nearBehind = i + 1;
+                if (i + 1 < (int)radarInfo.size()) {
+                    nearAhead = i + 1;
                 }
             }
         }
+
+        float nearAheadDeltaMts = 0;
+        if (nearAhead != -1 ) {
+            nearAheadDeltaMts = radarInfo[nearAhead].deltaMts;
+        }
+        dbg("Nearahead: %d - %f ", nearAhead, nearAheadDeltaMts);
+
         // Something's wrong if we didn't find our driver. Bail.
-        if (selfCarInfoIdx < 0)
+        if (selfRadarInfoIdx < 0)
             return;
 
-        dbg("Radar: %.2f - Self: %.2f", trackLength, ir_LapDist.getFloat());
-        
+        update_car_lengths(radarInfo, selfRadarInfoIdx, nearAhead, nearBehind);
+
+        char s[64] = "CarLen: ";
+        for (const auto carLenData : m_carLength) {
+            char t[32];
+            snprintf(t, sizeof(t), "%d: %f - ", carLenData.first, carLenData.second);
+            strcat(s, t);
+        }
+        dbg(s);
 
         D2D1_ROUNDED_RECT lRect, rRect;
+        int carsNear = 0;
+        const int carLeftRight = ir_CarLeftRight.getInt();
 
         m_renderTarget->BeginDraw();
         for (const CarInfo ci : radarInfo) {
 
-            if (fabsf(ci.deltaMts) > maxDist || ci.deltaMts == 0)
-                continue;
-            /* 
-                top = 0 when
-                    deltaMts = maxDist
-                top = 1 when
-                    deltaMts = -maxDist
-            */
+            const float carLength = max(m_carLength[ci.carID], 3.0f);
 
-            const float rect_top = min(max(ci.deltaMts, -maxDist), maxDist) / maxDist;
-            const float rect_bot = min(max(ci.deltaMts+carLength, -maxDist), maxDist) / maxDist;
+            if (fabsf(ci.deltaMts) > maxDist+carLength || ci.deltaMts == 0)
+                continue;
+
+            carsNear++;
+
+            const float rect_top = calculate_radar_Y(ci.deltaMts, maxDist);
+            const float rect_bot = calculate_radar_Y(ci.deltaMts+carLength, maxDist);
             dbg("Deltamts: %f", ci.deltaMts); 
 
             // Left side
@@ -156,58 +169,158 @@ protected:
             rRect.radiusX = cornerRadius;
             rRect.radiusY = cornerRadius;
 
-            const int carLeftRight = ir_CarLeftRight.getInt();
+            m_brush->SetColor(g_cfg.getFloat4(m_name, "car_near_fill_col", float4(1.0f, 0.2f, 0.0f, 0.5f)));
 
-            if (carLeftRight == irsdk_LRClear) {
-                m_brush->SetColor(g_cfg.getFloat4(m_name, "car_far_fill_col", float4(1.0f, 1.0f, 0.0f, 0.5f)));
-                m_renderTarget->FillRoundedRectangle(&lRect, m_brush.Get());
-                m_renderTarget->FillRoundedRectangle(&rRect, m_brush.Get());
+            // Paint left
+            switch (carLeftRight) {
+                case irsdk_LRCarLeft:
+                case irsdk_LR2CarsLeft:
+                case irsdk_LRCarLeftRight:
+                    m_brush->SetColor(g_cfg.getFloat4(m_name, "car_near_fill_col", float4(1.0f, 0.2f, 0.0f, 0.5f)));
+                    break;
+                default:
+                    m_brush->SetColor(g_cfg.getFloat4(m_name, "car_far_fill_col", float4(1.0f, 1.0f, 0.0f, 0.5f)));
             }
-            else {
-                m_brush->SetColor(g_cfg.getFloat4(m_name, "car_near_fill_col", float4(1.0f, 0.2f, 0.0f, 0.5f)));
+            m_renderTarget->FillRoundedRectangle(&lRect, m_brush.Get());
 
-                switch (carLeftRight) {
-                    case irsdk_LRCarLeft:
-                    case irsdk_LR2CarsLeft:
-                    case irsdk_LRCarLeftRight:
-                        m_renderTarget->FillRoundedRectangle(&lRect, m_brush.Get());
-                }
-
-                switch (carLeftRight) {
-                    case irsdk_LRCarRight:
-                    case irsdk_LR2CarsRight:
-                    case irsdk_LRCarLeftRight:
-                        m_renderTarget->FillRoundedRectangle(&rRect, m_brush.Get());
-                }
+            switch (carLeftRight) {
+                case irsdk_LRCarRight:
+                case irsdk_LR2CarsRight:
+                case irsdk_LRCarLeftRight:
+                    m_brush->SetColor(g_cfg.getFloat4(m_name, "car_near_fill_col", float4(1.0f, 0.2f, 0.0f, 0.5f)));
+                    break;
+                default:
+                    m_brush->SetColor(g_cfg.getFloat4(m_name, "car_far_fill_col", float4(1.0f, 1.0f, 0.0f, 0.5f)));
             }
-        
-            /*
-            switch (carLeftRight)
-            {
-            case irsdk_LRClear:
-                
-
-            case irsdk_LRCarLeft:
-            case irsdk_LR2CarsLeft:
-                m_renderTarget->FillRoundedRectangle(&lRect, m_brush.Get());
-                break;
-            case irsdk_LRCarRight:
-            case irsdk_LR2CarsRight:
-                m_renderTarget->FillRoundedRectangle(&rRect, m_brush.Get());
-                break;
-
-            case irsdk_LRCarLeftRight:
-                m_renderTarget->FillRoundedRectangle(&lRect, m_brush.Get());
-                m_renderTarget->FillRoundedRectangle(&rRect, m_brush.Get());
-                break;
-            }
-            */
+            m_renderTarget->FillRoundedRectangle(&rRect, m_brush.Get());
         }
-        
+
+        if (carsNear > 0 || true) {
+            D2D1_RECT_F lRect, rRect;
+
+            // Car limits Marks
+            float carLimitsMarkLen = g_cfg.getFloat(m_name, "car_limits_mark_len", 10.0f);
+            float rect_top = calculate_radar_Y(0+carLimitsMarkLen, maxDist);
+            float rect_bot = calculate_radar_Y(0, maxDist);
+            m_brush->SetColor(g_cfg.getFloat4(m_name, "car_limits_fill_col", float4(0.2f, 0.2f, 0.2f, 0.8f)));
+
+            // Left side
+            lRect = D2D1::RectF(0, h * rect_top, markerWidth, h * rect_bot);
+            // Right side
+            rRect = D2D1::RectF(w - markerWidth, h * rect_top, w, h * rect_bot);
+
+            m_renderTarget->FillRectangle(&lRect, m_brush.Get());
+            m_renderTarget->FillRectangle(&rRect, m_brush.Get());
+
+
+            const float selfLen = m_carLength[radarInfo[selfRadarInfoIdx].carID];
+            rect_top = calculate_radar_Y( selfLen, maxDist);
+            rect_bot = calculate_radar_Y(selfLen+carLimitsMarkLen, maxDist);
+            // Left side
+            lRect = D2D1::RectF(0, h * rect_top, markerWidth, h * rect_bot);
+            // Right side
+            rRect = D2D1::RectF(w - markerWidth, h * rect_top, w, h * rect_bot);
+
+            m_renderTarget->FillRectangle(&lRect, m_brush.Get());
+            m_renderTarget->FillRectangle(&rRect, m_brush.Get());
+        }
+
         m_renderTarget->EndDraw();
+    }
+
+    // Uhm... isn't the deque ordered now?
+    float calculate_median_from_deque(const std::deque<float>& deque) {
+
+        std::vector<float> tmpVec;
+        tmpVec.reserve((int)deque.size());
+        for (float v : deque) {
+            tmpVec.push_back(v);
+        }
+
+        auto m = tmpVec.begin() + tmpVec.size() / 2;
+        std::nth_element(tmpVec.begin(), m, tmpVec.end());
+        return tmpVec[tmpVec.size() / 2];
+    }
+
+    // This uses -value as the coords are top to bottom!
+    float calculate_radar_Y(float value, float maxDist) {
+        const float carOffset = g_cfg.getFloat(m_name, "car_offset", 2.0f);
+        const float clamp_max = maxDist - carOffset;
+        const float clamp_min = -maxDist - carOffset;
+        return min(max(0.0f + (1.0f / (clamp_max - clamp_min)) * (value - clamp_min), 0.0f), 1.0f);
+        //output = output_start + ((output_end - output_start) / (input_end - input_start)) * (input - input_start)
+
+        //return min(max(1.0f + (-1.0f / (2 * clamp)) * (-value + clamp), 0.0f), 1.0f);
+    }
+
+    void update_car_length(int carID, float deltaMts) {
+
+        const int nearestClearQueueSize = g_cfg.getFloat(m_name, "nearest_clear_queue_size", 5);
+        if (deltaMts > 1.5f && deltaMts < 5.0f) {
+            std::cout << "Updating! ";
+            m_carLengthCalculationData[carID].push_back(deltaMts);
+            std::sort(m_carLengthCalculationData[carID].begin(), m_carLengthCalculationData[carID].end(),
+                [](const float a, const float b) {return a > b;});
+            float carLen = m_carLength[carID];
+
+            while (m_carLengthCalculationData[carID].size() > nearestClearQueueSize) {
+                printf("Dropping: F:%f B:%f ", m_carLengthCalculationData[carID].front(), m_carLengthCalculationData[carID].back());
+                m_carLengthCalculationData[carID].pop_front();
+                m_carLengthCalculationData[carID].pop_back();
+            }
+            
+
+            carLen = calculate_median_from_deque(m_carLengthCalculationData[carID]);
+            m_carLength[carID] = carLen;
+            printf(" new carLength: %f", carLen);
+        }
+    }
+
+    void update_car_lengths(const std::vector<CarInfo> radarInfo, int selfIdx, int aheadIdx, int behindIdx) {
+        
+        const int selfCarID = radarInfo[selfIdx].carID;
+        const int carLeftRight = ir_CarLeftRight.getInt();
+
+        if (carLeftRight == irsdk_LRClear) {
+            if (!m_areWeClear) {
+                m_areWeClear = true;
+                // Just got cleared. Calc!!
+
+                // We got a car ahead
+                if (aheadIdx != -1) {
+
+                    std::cout << "Checking len ahead... ";
+
+                    // ahead == negative numbers // skip too low values, maybe a spinout
+                    const float deltaMts = -radarInfo[aheadIdx].deltaMts;
+                    const int carID = radarInfo[aheadIdx].carID;
+                    printf("%d: %f - ", carID, deltaMts);
+                    update_car_length(carID, deltaMts);
+                    std::cout << std::endl;
+                }
+                
+                // We got a car behind, this updates OUR car!
+                if (behindIdx != -1) {
+                    std::cout << "Checking len behind...";
+                    // behind == positive numbers // skip too low values, maybe a spinout
+                    const float deltaMts = radarInfo[behindIdx].deltaMts;
+                    printf("%d: %f - ", selfCarID,deltaMts);
+                    update_car_length(selfCarID, deltaMts);
+                    std::cout << std::endl;
+                }
+        
+            }
+        }
+        else {
+            m_areWeClear = false;
+        }
+
+        
     }
 
 protected:
 
-    std::array<int, IR_MAX_CARS> m_persistentLR;
+    bool  m_areWeClear = true;
+    std::map<int, std::deque<float> > m_carLengthCalculationData;
+    std::map<int, float> m_carLength;
 };
