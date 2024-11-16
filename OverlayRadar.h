@@ -67,7 +67,7 @@ protected:
         radarInfo.reserve(IR_MAX_CARS);
         const float selfLapDistPct = ir_LapDistPct.getFloat();
         const float trackLength = ir_LapDist.getFloat() / selfLapDistPct;
-        const float maxDist = g_cfg.getFloat(m_name, "max_distance", 5.0f);
+        const float maxDist = g_cfg.getFloat(m_name, "max_distance", 7.0f);
 
         // Populate RadarInfo
         for (int i = 0; i < IR_MAX_CARS; ++i)
