@@ -82,6 +82,7 @@ protected:
                 const bool wrap = fabsf(selfLapDistPct - carLapDistPct) > 0.5f;
                 float lapDistPctDelta = selfLapDistPct - carLapDistPct;
 
+                // Account for start/finish line
                 if (wrap) {
                     if (selfLapDistPct > carLapDistPct) {
                         lapDistPctDelta -= 1;
@@ -92,7 +93,8 @@ protected:
                 }
                 const float deltaMts = lapDistPctDelta * trackLength;
 
-                // TODO: do it by largest car length?
+                // Filter the list, we dont care about far away cars
+                // TODO: 5.0f? Shouldn't be by largest car length or something like that?
                 if (fabs(deltaMts) < maxDist + 5.0f)
                     radarInfo.emplace_back(i, deltaMts, car.carID);
 
@@ -131,7 +133,8 @@ protected:
         if (selfRadarInfoIdx < 0)
             return;
 
-        update_car_lengths(radarInfo, selfRadarInfoIdx, nearAhead, nearBehind);
+        // Update car lengths if just cleared
+        check_update_car_lengths(radarInfo, selfRadarInfoIdx, nearAhead, nearBehind);
 
         char s[64] = "CarLen: ";
         for (const auto carLenData : m_carLength) {
@@ -148,7 +151,7 @@ protected:
         m_renderTarget->BeginDraw();
         for (const CarInfo ci : radarInfo) {
 
-            const float carLength = max(m_carLength[ci.carID], 3.0f);
+            const float carLength = max(m_carLength[ci.carID], 4.0f);
 
             if (fabsf(ci.deltaMts) > maxDist+carLength || ci.deltaMts == 0)
                 continue;
@@ -256,7 +259,7 @@ protected:
     void update_car_length(int carID, float deltaMts) {
 
         const int nearestClearQueueSize = g_cfg.getFloat(m_name, "nearest_clear_queue_size", 5);
-        if (deltaMts > 1.5f && deltaMts < 5.0f) {
+        if (deltaMts > 1.5f && deltaMts < 5.5f) {
             std::cout << "Updating! ";
             m_carLengthCalculationData[carID].push_back(deltaMts);
             std::sort(m_carLengthCalculationData[carID].begin(), m_carLengthCalculationData[carID].end(),
@@ -276,7 +279,7 @@ protected:
         }
     }
 
-    void update_car_lengths(const std::vector<CarInfo> radarInfo, int selfIdx, int aheadIdx, int behindIdx) {
+    void check_update_car_lengths(const std::vector<CarInfo> radarInfo, int selfIdx, int aheadIdx, int behindIdx) {
         
         const int selfCarID = radarInfo[selfIdx].carID;
         const int carLeftRight = ir_CarLeftRight.getInt();
@@ -312,6 +315,10 @@ protected:
             }
         }
         else {
+            // Should we track cars here, such that we can pre-empt if we are clearing them from ahead/behind?
+            // That would be, at least, cool.
+            // And would let us get a good first read on car lengths (if we don't hardcode the car lengths eventually)
+
             m_areWeClear = false;
         }
 
