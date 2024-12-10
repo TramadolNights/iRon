@@ -136,13 +136,16 @@ protected:
         // Update car lengths if just cleared
         check_update_car_lengths(radarInfo, selfRadarInfoIdx, nearAhead, nearBehind);
 
-        char s[64] = "CarLen: ";
+        // FIXME: I ran into a "Stack around the variable 's' was corrupted"
+        // 
+        std::string s = "CarLen: ";
+        s.reserve(256);
         for (const auto carLenData : m_carLength) {
             char t[32];
             snprintf(t, sizeof(t), "%d: %f - ", carLenData.first, carLenData.second);
-            strcat(s, t);
+            s += t;
         }
-        dbg(s);
+        dbg(s.c_str());
 
         D2D1_ROUNDED_RECT lRect, rRect;
         int carsNear = 0;
@@ -330,4 +333,5 @@ protected:
     bool  m_areWeClear = true;
     std::map<int, std::deque<float> > m_carLengthCalculationData;
     std::map<int, float> m_carLength;
+#pragma message ("WARNING: We never free the m_carLength and m_carLengthCalculationData std::map's")
 };
