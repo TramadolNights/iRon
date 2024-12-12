@@ -50,15 +50,20 @@ SOFTWARE.
 #include "util.h"
 
 #ifdef _DEBUG
+    // Global var
+    bool g_dbgOverlayEnabled;
+    
     //#define _DEBUG_DUMP_VARS
+    
     #include <chrono>
-    #define _DEBUG_OVERLAY_TIME
+    #define DEBUG_OVERLAY_TIME
 #endif
 using namespace Microsoft::WRL;
 using namespace std;
 
 enum class Hotkey
 {
+    Debug,
     UiEdit,
     Standings,
     DDU,
@@ -72,6 +77,7 @@ enum class Hotkey
 
 static void registerHotkeys()
 {
+    UnregisterHotKey( NULL, (int)Hotkey::Debug );
     UnregisterHotKey( NULL, (int)Hotkey::UiEdit );
     UnregisterHotKey( NULL, (int)Hotkey::Standings );
     UnregisterHotKey( NULL, (int)Hotkey::DDU );
@@ -83,6 +89,9 @@ static void registerHotkeys()
     UnregisterHotKey(NULL, (int)Hotkey::Radar );
 
     UINT vk, mod;
+
+    if (parseHotkey("ctrl+9", &mod, &vk))
+        RegisterHotKey(NULL, (int)Hotkey::Debug, mod, vk);
 
     if( parseHotkey( g_cfg.getString("General","ui_edit_hotkey","alt-j"),&mod,&vk) )
         RegisterHotKey( NULL, (int)Hotkey::UiEdit, mod, vk );
@@ -249,6 +258,7 @@ int main()
 
 #ifdef _DEBUG
     overlays.push_back( new OverlayDebug(m_d3dDevice) );
+    g_dbgOverlayEnabled = g_cfg.getBool("OverlayDebug", "enabled", true);
 #endif
 
     ConnectionStatus  status   = ConnectionStatus::UNKNOWN;
@@ -370,6 +380,12 @@ int main()
                         break;
                     case (int)Hotkey::TargetLapDown:
                         g_cfg.setInt("OverlayDDU", "fuel_target_lap", std::max( g_cfg.getInt("OverlayDDU", "fuel_target_lap", 0) - 1, 0) );
+                        break;
+                    
+                    case (int)Hotkey::Debug:
+                        const bool newDebugStatus = !g_cfg.getBool("OverlayDebug", "enabled", true);
+                        g_cfg.setBool( "OverlayDebug", "enabled", newDebugStatus);
+                        g_dbgOverlayEnabled = newDebugStatus;
                         break;
                     }
                     

@@ -168,6 +168,7 @@ protected:
             ci.best         = ir_CarIdxBestLapTime.getFloat(i);
             if (ir_session.sessionType == SessionType::RACE && ir_SessionState.getInt() <= irsdk_StateWarmup || ir_session.sessionType == SessionType::QUALIFY && ci.best <= 0) {
                 ci.best = car.qualy.fastestTime;
+                // TODO: Iterating over all cars, nested?
                 for (int i = 0; i < IR_MAX_CARS; ++i) {
                     for (int j = 0; j < 5; ++j) {
                         avgL5Times[i][j] = 0.0;
@@ -241,6 +242,7 @@ protected:
         // Compute lap gap to leader and compute delta
         int classLeader = -1;
         int carsInClass = 0;
+        float classLeaderGapToOverall = 0.0f;
         for( int i=0; i<(int)carInfo.size(); ++i )
         {
             CarInfo&       ci       = carInfo[i];
@@ -251,6 +253,7 @@ protected:
 
             if (ci.position == 1) {
                 classLeader = ci.carIdx;
+                classLeaderGapToOverall = ci.gap;
             }
 
             ci.lapGap = ir_getLapDeltaToLeader( ci.carIdx, classLeader);
@@ -258,12 +261,15 @@ protected:
 
             if (ir_session.sessionType != SessionType::RACE) {
                 if(classLeader != -1) {
-                    ci.gap = ir_CarIdxF2Time.getFloat(ci.carIdx) - ir_CarIdxF2Time.getFloat(classLeader);
+                    ci.gap -= classLeaderGapToOverall;
                     ci.gap = ci.gap < 0 ? 0 : ci.gap;
                 }
                 else {
                     ci.gap = 0;
                 }
+            }
+            else {
+                ci.gap -= classLeaderGapToOverall;
             }
         }
 

@@ -35,13 +35,17 @@ struct DbgLine
     float4      col;
 };
 
+#ifdef _DEBUG
 static std::vector<DbgLine> g_dbgLines;
+extern bool g_dbgOverlayEnabled;
+#endif
 
 void dbg( const float4& color, const char* fmt, ... )
 {
 #ifndef _DEBUG
     return;
 #endif
+    if (!g_dbgOverlayEnabled) return;
 
     va_list args;
     va_start( args, fmt );
@@ -62,6 +66,7 @@ void dbg( const char* fmt, ... )
 #ifndef _DEBUG
     return;
 #endif
+    if (!g_dbgOverlayEnabled) return;
 
     va_list args;
     va_start( args, fmt );
