@@ -34,7 +34,7 @@ SOFTWARE.
 #include <wrl.h>
 #include "util.h"
 
-#ifdef _DEBUG and _DEBUG_OVERLAY_TIME
+#if defined(_DEBUG) or defined(DEBUG_OVERLAY_TIME)
     #include <chrono>
 #endif
 
@@ -81,7 +81,7 @@ class Overlay
         int             m_ypos = 0;
         int             m_width = 0;
         int             m_height = 0;
-#ifdef _DEBUG and _DEBUG_OVERLAY_TIME
+#if defined(_DEBUG) or defined(DEBUG_OVERLAY_TIME)
         std::chrono::steady_clock::time_point debugTimeStart = std::chrono::high_resolution_clock::now();
         std::chrono::steady_clock::time_point debugTimeEnd = debugTimeStart;
         long long debugTimeDiff = 0;

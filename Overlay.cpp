@@ -28,7 +28,7 @@ SOFTWARE.
 #include "Overlay.h"
 #include "Config.h"
 
-#ifdef _DEBUG and _DEBUG_OVERLAY_TIME
+#if defined(_DEBUG) or defined(DEBUG_OVERLAY_TIME)
     #include "OverlayDebug.h"
 #endif
 using namespace Microsoft::WRL;
@@ -290,7 +290,7 @@ void Overlay::update()
     const float h = (float)m_height;
     const float cornerRadius = g_cfg.getFloat( m_name, "corner_radius", m_name=="OverlayInputs"?2.0f:6.0f );
 
-#ifdef _DEBUG and _DEBUG_OVERLAY_TIME
+#if defined(_DEBUG) or defined(DEBUG_OVERLAY_TIME)
     debugTimeStart = std::chrono::high_resolution_clock::now();
 #endif
     // Clear/draw background
@@ -327,12 +327,15 @@ void Overlay::update()
 
     HRCHECK(m_swapChain->Present( 1, 0 ));
 
-#ifdef _DEBUG and _DEBUG_OVERLAY_TIME
+#if defined(_DEBUG) or defined(DEBUG_OVERLAY_TIME)
     using micro = std::chrono::microseconds;
     debugTimeEnd = std::chrono::high_resolution_clock::now();
     debugTimeDiff = std::chrono::duration_cast<micro>(debugTimeEnd - debugTimeStart).count();
     debugTimeAvg = (debugTimeAvg / 10) * 9 + (float)(debugTimeDiff) / 10;
     dbg("%s loop took %.4f (%i) microseconds", m_name.c_str(), debugTimeAvg, debugTimeDiff);
+#   if defined(DEBUG_OVERLAY_TIME)
+        std::cout << std::format("{} loop took {:.4f} ({}) microseconds", m_name.c_str(), debugTimeAvg, debugTimeDiff) << std::endl;
+#   endif
     debugTimeStart = std::chrono::high_resolution_clock::now();
 #endif
 }

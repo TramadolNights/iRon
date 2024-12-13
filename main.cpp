@@ -51,12 +51,11 @@ SOFTWARE.
 
 // Global var
 bool g_dbgOverlayEnabled;
-#ifdef _DEBUG
-    
-    //#define _DEBUG_DUMP_VARS
-    
+#if defined(_DEBUG) or defined(DEBUG_OVERLAY_TIME)
     #include <chrono>
-    #define DEBUG_OVERLAY_TIME
+    
+    //#define DEBUG_DUMP_VARS
+    
 #endif
 using namespace Microsoft::WRL;
 using namespace std;
@@ -204,7 +203,7 @@ static void LoadCarIcons(map<string, IWICFormatConverter*>& carBrandIconsMap) {
 
 int main()
 {
-#ifdef _DEBUG
+#if defined(_DEBUG) or defined(DEBUG_OVERLAY_TIME)
     auto debugtime_start = std::chrono::high_resolution_clock::now();
     auto debugtime_finish = debugtime_start;
     bool debugtimer_started = false;
@@ -246,6 +245,16 @@ int main()
     printf("Happy Racing!\n");
     printf("====================================================================================\n\n");
 
+#ifdef _DEBUG
+    printf(" ################################################\n");
+    printf(" #   DEBUG BUILD!     PERFORMANCE WILL SUFFER!  #\n");
+    printf(" #   DEBUG BUILD!     PERFORMANCE WILL SUFFER!  #\n");
+    printf(" #   DEBUG BUILD!     PERFORMANCE WILL SUFFER!  #\n");
+    printf(" #   DEBUG BUILD!     PERFORMANCE WILL SUFFER!  #\n");
+    printf(" ################################################\n");
+    printf("            Toggle debug overlay:   ctrl+9\n");
+#endif
+
     // Create D3D Device
     Microsoft::WRL::ComPtr<ID3D11Device> m_d3dDevice;
     // D3D11 device
@@ -268,7 +277,7 @@ int main()
     ConnectionStatus  status   = ConnectionStatus::UNKNOWN;
     bool              uiEdit   = false;
     unsigned          frameCnt = 0;    
-#ifdef _DEBUG
+#if defined(_DEBUG) or defined(DEBUG_OVERLAY_TIME)
     // Added in debug only for now
     std::chrono::steady_clock::time_point loopTimeStart, loopTimeEnd;
     long long loopTimeDiff;
@@ -281,7 +290,7 @@ int main()
 
         // Refresh connection and session info
         status = ir_tick();
-#ifdef _DEBUG
+#if defined(_DEBUG) or defined(DEBUG_OVERLAY_TIME)
         // Added in debug only for now
         loopTimeStart = std::chrono::high_resolution_clock::now();
 #endif
@@ -295,7 +304,7 @@ int main()
             // Enable user-selected overlays, but only if we're driving
             handleConfigChange( overlays, status );
 
-#ifdef _DEBUG and _DEBUG_DUMP_VARS
+#if defined(_DEBUG) and defined(DEBUG_DUMP_VARS)
             ir_printVariables();
 #endif
         }
@@ -404,7 +413,7 @@ int main()
 
         frameCnt++;
         
-#ifdef _DEBUG
+#if defined(_DEBUG) or defined(DEBUG_OVERLAY_TIME)
         // Added in debug for now
         using micro = std::chrono::microseconds;
         loopTimeEnd = std::chrono::high_resolution_clock::now();
@@ -418,6 +427,9 @@ int main()
         }
         debugtimeavg = (debugtimeavg / 10) * 9 + (float)(loopTimeDiff) / 10;
         dbg("Main loop took %.4f (%i) microseconds", debugtimeavg, loopTimeDiff);
+#   if defined(DEBUG_OVERLAY_TIME)
+        std::cout << std::format("Main loop took {:.4f} ({}) microseconds", debugtimeavg, loopTimeDiff) << std::endl;
+#   endif
         debugtime_start = std::chrono::high_resolution_clock::now();
         // This should remain in debug - END
 #endif
