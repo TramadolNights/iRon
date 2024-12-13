@@ -677,7 +677,10 @@ class OverlayDDU : public Overlay
                     m_brush->SetColor( t <= 0 ? goodCol : badCol );
                     m_renderTarget->FillRectangle( &r, m_brush.Get() );
                     m_brush->SetColor( textCol );
-                    m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), m_boxDelta.x0, m_boxDelta.x1, m_boxDelta.y0+m_boxDelta.h*0.5f, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+                    
+                    // Don't cache this! The memory cost is too high for a number that could skyrocket if you stop on track.
+                    // Weird edge case, but the CPU cost is negligible vs the risk of this crashing a computer
+                    m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), m_boxDelta.x0, m_boxDelta.x1, m_boxDelta.y0+m_boxDelta.h*0.5f, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER, true);
                 }
             }
 

@@ -43,21 +43,21 @@ public:
 
     enum class Columns { POSITION, CAR_NUMBER, NAME, GAP, BEST, LAST, LICENSE, IRATING, CAR_BRAND, PIT, DELTA, L5, POSITIONS_GAINED };
 
-    OverlayStandings(Microsoft::WRL::ComPtr<ID3D11Device> d3dDevice, map<string, IWICFormatConverter*> mapa)
+    OverlayStandings(Microsoft::WRL::ComPtr<ID3D11Device> d3dDevice, map<string, IWICFormatConverter*> carBrandIconsMap)
         : Overlay("OverlayStandings", d3dDevice)
     {
-        avgL5Times.reserve(IR_MAX_CARS);
+        m_avgL5Times.reserve(IR_MAX_CARS);
 
         for (int i = 0; i < IR_MAX_CARS; ++i) {
-            avgL5Times.emplace_back();
-            avgL5Times[i].reserve(5);
+            m_avgL5Times.emplace_back();
+            m_avgL5Times[i].reserve(5);
 
             for (int j = 0; j < 5; ++j) {
-                avgL5Times[i].emplace_back(0.0);
+                m_avgL5Times[i].emplace_back(0.0);
             }
         }
 
-        this->mapa = mapa;
+        this->m_carBrandIconsMap = carBrandIconsMap;
     }
 
 protected:
@@ -70,6 +70,12 @@ protected:
     virtual void onDisable()
     {
         m_text.reset();
+
+        // Clear car brand bitmap pointers on disable
+        for (auto pair : m_carIdToIconMap) {
+            pair.second->Release();
+        }
+        m_carIdToIconMap.clear();
     }
 
     virtual void onConfigChanged()
@@ -168,11 +174,8 @@ protected:
             ci.best         = ir_CarIdxBestLapTime.getFloat(i);
             if (ir_session.sessionType == SessionType::RACE && ir_SessionState.getInt() <= irsdk_StateWarmup || ir_session.sessionType == SessionType::QUALIFY && ci.best <= 0) {
                 ci.best = car.qualy.fastestTime;
-                // TODO: Iterating over all cars, nested?
-                for (int i = 0; i < IR_MAX_CARS; ++i) {
-                    for (int j = 0; j < 5; ++j) {
-                        avgL5Times[i][j] = 0.0;
-                    }
+                for (int j = 0; j < 5; ++j) {
+                    m_avgL5Times[ci.carIdx][j] = 0.0;
                 }
             }
                 
@@ -206,11 +209,11 @@ protected:
             }
             
             if(ci.lapCount > 0)
-                avgL5Times[ci.carIdx][ci.lapCount % 5] = ci.last;
+                m_avgL5Times[ci.carIdx][ci.lapCount % 5] = ci.last;
 
             float total = 0;
             int conteo = 0;
-            for (float time : avgL5Times[ci.carIdx]) {
+            for (float time : m_avgL5Times[ci.carIdx]) {
                 if (time > 0.0) {
                     total += time;
                     conteo++;
@@ -519,27 +522,17 @@ protected:
             // Car brand
             if (clm = m_columns.get((int)Columns::CAR_BRAND))
             {
-                string carNameLowerCase = toLowerCase(car.carName);
-
-                IWICFormatConverter* valor = findAndDrawCar(carNameLowerCase, mapa);
-                
-                //Default value if cant find car
-                if (valor == nullptr) {
-                    
-                    if (notFoundBrands.find(car.carName) == notFoundBrands.end() ) {
-                        std::cout << "Couldn't find car '" << car.carName << "' in the carIcons folder." << std::endl;
-                        notFoundBrands.insert(car.carName);
-                    }
-
-                    valor = findAndDrawCar("00error", mapa);
+                // if this carID doesn't have a brand yet, find it
+                // TODO: Don't create multiple bitmaps if multiple cars use the same icon
+                // This would help if many cars load the 00Error 
+                if (m_carIdToIconMap.find(car.carID) == m_carIdToIconMap.end()) {
+                     m_renderTarget->CreateBitmapFromWicBitmap( findCarBrandIcon(car.carName, m_carBrandIconsMap), nullptr, &m_carIdToIconMap[car.carID]);
                 }
 
-                if (valor != nullptr) {
-                    ID2D1Bitmap* pBitmap = NULL;
-                    m_renderTarget->CreateBitmapFromWicBitmap(valor, nullptr, &pBitmap);
-                    D2D1_RECT_F r = { xoff + clm->textL, y - lineHeight / 2, xoff + clm->textR, y + lineHeight / 2 };
-                    m_renderTarget->DrawBitmap(pBitmap, r);
-                    pBitmap->Release();
+                if (m_carIdToIconMap[car.carID] != 0) {
+                    // Make it a rectangle of lineHeight width and lineHeight height
+                    D2D1_RECT_F r = { xoff + clm->textL, y - lineHeight / 2, xoff + clm->textL + lineHeight, y + lineHeight / 2 };
+                    m_renderTarget->DrawBitmap(m_carIdToIconMap[car.carID], r);
                 }
                 else {
                     std::cout << "Error rendering car brand!" << std::endl;
@@ -684,7 +677,8 @@ protected:
 
     ColumnLayout m_columns;
     TextCache    m_text;
-    vector<vector<float>> avgL5Times;
-    map<string, IWICFormatConverter*> mapa;
+    vector<vector<float>> m_avgL5Times;
+    map<string, IWICFormatConverter*> m_carBrandIconsMap;
+    map<int, ID2D1Bitmap*> m_carIdToIconMap;
     std::set<std::string> notFoundBrands;
 };

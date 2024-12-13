@@ -136,8 +136,6 @@ protected:
         // Update car lengths if just cleared
         check_update_car_lengths(radarInfo, selfRadarInfoIdx, nearAhead, nearBehind);
 
-        // FIXME: I ran into a "Stack around the variable 's' was corrupted"
-        // 
         std::string s = "CarLen: ";
         s.reserve(256);
         for (const auto carLenData : m_carLength) {
@@ -261,7 +259,7 @@ protected:
 
     void update_car_length(int carID, float deltaMts) {
 
-        const int nearestClearQueueSize = g_cfg.getFloat(m_name, "nearest_clear_queue_size", 5);
+        const int nearestClearQueueSize = g_cfg.getInt(m_name, "nearest_clear_queue_size", 5);
         if (deltaMts > 1.5f && deltaMts < 5.5f) {
             std::cout << "Updating! ";
             m_carLengthCalculationData[carID].push_back(deltaMts);

@@ -412,7 +412,7 @@ irsdkCVar::irsdkCVar(const char *name)
 }
 
 void irsdkCVar::setVarName(const char *name)
-{
+{ 
 	if(!name || 0 != strncmp(name, m_name, sizeof(m_name)))
 	{
 		m_idx = -1;
@@ -438,7 +438,7 @@ bool irsdkCVar::checkIdx()
 			m_idx = irsdkClient::instance().getVarIdx(m_name);
 		}
 
-		return true;
+		return (m_idx != -1);
 	}
 
 	return false;

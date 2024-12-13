@@ -49,9 +49,9 @@ SOFTWARE.
 #include "OverlayRadar.h"
 #include "util.h"
 
+// Global var
+bool g_dbgOverlayEnabled;
 #ifdef _DEBUG
-    // Global var
-    bool g_dbgOverlayEnabled;
     
     //#define _DEBUG_DUMP_VARS
     
@@ -165,7 +165,7 @@ void LoadPNGImage(const wchar_t* filePath, ComPtr<IWICImagingFactory>& wicFactor
 
 }
 
-static void LoadCarIcons(map<string, IWICFormatConverter*>& mapa) {
+static void LoadCarIcons(map<string, IWICFormatConverter*>& carBrandIconsMap) {
     const wchar_t* directory = L"./carIcons";
 
     CoInitialize(nullptr);
@@ -178,24 +178,28 @@ static void LoadCarIcons(map<string, IWICFormatConverter*>& mapa) {
     CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(wicFactory.GetAddressOf()));
 
     if (filesystem::exists(directory) && filesystem::is_directory(directory)) {
-        for (const auto& archivo : filesystem::directory_iterator(directory)) {
-            if (filesystem::is_regular_file(archivo)) {
-                std::string ruta = archivo.path().string();
+        for (const auto& iconFilename : filesystem::directory_iterator(directory)) {
+            if (filesystem::is_regular_file(iconFilename)) {
+                std::string ruta = iconFilename.path().string();
 
                 int length = MultiByteToWideChar(CP_UTF8, 0, ruta.c_str(), -1, NULL, 0);
-                wchar_t* ruta_wchar = new wchar_t[length];
-                MultiByteToWideChar(CP_UTF8, 0, ruta.c_str(), -1, ruta_wchar, length);
+                wchar_t* path_wchar = new wchar_t[length];
+                MultiByteToWideChar(CP_UTF8, 0, ruta.c_str(), -1, path_wchar, length);
 
-                LoadPNGImage(ruta_wchar, wicFactory, decoder, frame, formatConverter);
-                string name = archivo.path().filename().string();
+                LoadPNGImage(path_wchar, wicFactory, decoder, frame, formatConverter);
+                
                 std::regex pattern("\\.\\w+$");
-                mapa[regex_replace(name, pattern, "")] = formatConverter.Get();
+                string brandName = iconFilename.path().filename().string();
+                brandName = regex_replace(brandName, pattern, "");
+                brandName = toLowerCase(brandName);
+                carBrandIconsMap[brandName] = formatConverter.Get();
             }
         }
     }
     else {
-        cout << "Cars icons doesnt found" << endl;
+        cout << "Cars icons folder not found!" << endl;
     }
+
 }
 
 int main()
@@ -214,8 +218,8 @@ int main()
     g_cfg.load();
     g_cfg.watchForChanges();
 
-    map<string, IWICFormatConverter*> mapa;
-    LoadCarIcons(mapa);
+    map<string, IWICFormatConverter*> carBrandIconsMap;
+    LoadCarIcons(carBrandIconsMap);
 
     // Register global hotkeys
     registerHotkeys();
@@ -252,7 +256,7 @@ int main()
     overlays.push_back( new OverlayCover(m_d3dDevice) );
     overlays.push_back( new OverlayRelative(m_d3dDevice) );
     overlays.push_back( new OverlayInputs(m_d3dDevice) );
-    overlays.push_back( new OverlayStandings(m_d3dDevice, mapa ) );
+    overlays.push_back( new OverlayStandings(m_d3dDevice, carBrandIconsMap ) );
     overlays.push_back( new OverlayDDU(m_d3dDevice) );
     overlays.push_back(new OverlayRadar(m_d3dDevice) );
 

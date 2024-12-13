@@ -291,6 +291,10 @@ class TextCache
         // Render some text, using a cached TextLayout if possible.
         // This works around spending ungodly amount of CPU cycles on ID2D1RenderTarget::DrawText.
         //
+        // To disable cache creation, a bool is added as a last parameter.
+        // This should be used for texts that are not likely to repeat, or could have too many different values, to avoid OOMs
+        // For example, the DDU vsBest delta if the car is stopped on track
+        // 
         // Assumption: all values stored in 'textFormat' are invariant between calls to this function, except horizontal alignment.
         // Which is why we're including alignment in the hash explicitly, and otherwise just include the text format pointer.
         // This isn't bullet proof, since a user could get the same address again for a newly (re-)created text format. But in our usage
@@ -299,9 +303,9 @@ class TextCache
         // Assumption: textFormat is set to DWRITE_PARAGRAPH_ALIGNMENT_CENTER, so ycenter +/- fontSize is enough vertical room in all
         // cases. I.e. we only care about rendering single-line text.
         //
-        void render( ID2D1RenderTarget* renderTarget, const wchar_t* str, IDWriteTextFormat* textFormat, float xmin, float xmax, float ycenter, ID2D1SolidColorBrush* brush, DWRITE_TEXT_ALIGNMENT align )
+        void render( ID2D1RenderTarget* renderTarget, const wchar_t* str, IDWriteTextFormat* textFormat, float xmin, float xmax, float ycenter, ID2D1SolidColorBrush* brush, DWRITE_TEXT_ALIGNMENT align, bool noCache = false)
         {
-            IDWriteTextLayout* textLayout = getOrCreateTextLayout( str, textFormat, xmin, xmax, align );
+            IDWriteTextLayout* textLayout = getOrCreateTextLayout( str, textFormat, xmin, xmax, align, noCache);
             if( !textLayout )
                 return;
 
@@ -309,8 +313,11 @@ class TextCache
 
             const D2D1_RECT_F r = { xmin, ycenter-fontSize, xmax, ycenter+fontSize };
             renderTarget->DrawTextLayout( float2(xmin,ycenter-fontSize), textLayout, brush, D2D1_DRAW_TEXT_OPTIONS_CLIP );
+            if (noCache) {
+                textLayout->Release();
+            }
         }
-
+        
         //
         // Same assumptions as render().
         //
@@ -328,7 +335,7 @@ class TextCache
 
     private:
 
-        IDWriteTextLayout* getOrCreateTextLayout( const wchar_t* str, IDWriteTextFormat* textFormat, float xmin, float xmax, DWRITE_TEXT_ALIGNMENT align )
+        IDWriteTextLayout* getOrCreateTextLayout( const wchar_t* str, IDWriteTextFormat* textFormat, float xmin, float xmax, DWRITE_TEXT_ALIGNMENT align, bool noCache = false)
         {
             if( xmax < xmin )
                 return nullptr;
@@ -352,7 +359,10 @@ class TextCache
             if( it == m_cache.end() )
             {
                 m_factory->CreateTextLayout( str, len, textFormat, width, fontSize*2, &textLayout );
-                m_cache.insert( std::make_pair(hash, textLayout) );
+                if (!noCache) {
+                    m_cache.insert(std::make_pair(hash, textLayout));
+                }
+                
             }
             else
             {
@@ -472,22 +482,23 @@ inline std::string toLowerCase(std::string str) {
 };
 
 
-inline IWICFormatConverter* findAndDrawCar(const std::string& carName, std::map<std::string, IWICFormatConverter*>& mapa)
+inline IWICFormatConverter* findCarBrandIcon(const std::string& carName, std::map<std::string, IWICFormatConverter*>& carBrandsMap)
 {
     std::string cocheLowerCase = toLowerCase(carName);
 
     IWICFormatConverter* valor = nullptr; // Valor por defecto si no se encuentra el coche en el mapa
 
     // Buscar el coche en el mapa
-    for (const auto& pair : mapa)
+    for (const auto& pair : carBrandsMap)
     {
-        std::string keyLowerCase = toLowerCase(pair.first);
-        if (cocheLowerCase.find(keyLowerCase) != std::string::npos)
+        if (cocheLowerCase.find(pair.first) != std::string::npos)
         {
             valor = pair.second;
             break;
         }
     }
+
+    if (valor == nullptr) valor = carBrandsMap["00error"];
 
     return valor;
 }
