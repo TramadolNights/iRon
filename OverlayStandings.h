@@ -1,4 +1,4 @@
-﻿/*
+/*
 MIT License
 
 Copyright (c) 2021-2022 L. E. Spalt
@@ -298,6 +298,7 @@ protected:
 
         const ColumnLayout::Column* clm = nullptr;
         wchar_t s[512];
+        wchar_t footer_text[512] = L"";
         string str;
         D2D1_RECT_F r = {};
         D2D1_ROUNDED_RECT rr = {};
@@ -657,10 +658,35 @@ protected:
 
             m_brush->SetColor(float4(1,1,1,0.4f));
             m_renderTarget->DrawLine( float2(0,ybottom),float2((float)m_width,ybottom),m_brush.Get() );
-            swprintf( s, _countof(s), L"SoF: %d       Track Temp: %.1f°%c      Session end: %d:%02d:%02d       Laps: %d/%hs%d", ir_session.sof, trackTemp, tempUnit, hours, mins, secs, laps, (irTotalLaps == 32767 ? "~" : ""), totalLaps);
+
+            if (g_cfg.getBool(m_name, "show_SoF", true)) {
+                swprintf( footer_text + wcslen(footer_text), sizeof(footer_text) / sizeof(wchar_t) - wcslen(footer_text), L"SoF: %d", ir_session.sof);
+            }
+
+            if (g_cfg.getBool(m_name, "show_track_temp", true)) {
+                if (g_cfg.getBool(m_name, "show_SoF", true)) {
+                    swprintf( footer_text + wcslen(footer_text), sizeof(footer_text) / sizeof(wchar_t) - wcslen(footer_text), L"       ");
+                }
+                swprintf( footer_text + wcslen(footer_text), sizeof(footer_text) / sizeof(wchar_t) - wcslen(footer_text), L"Track Temp: %.1f°%c", trackTemp, tempUnit);
+            }
+
+            if (g_cfg.getBool(m_name, "show_session_end", true)) {
+                if (g_cfg.getBool(m_name, "show_SoF", true) || g_cfg.getBool(m_name, "show_track_temp", true)) {
+                    swprintf( footer_text + wcslen(footer_text), sizeof(footer_text) / sizeof(wchar_t) - wcslen(footer_text), L"       ");
+                }
+                swprintf( footer_text + wcslen(footer_text), sizeof(footer_text) / sizeof(wchar_t) - wcslen(footer_text), L"Session end: %d:%02d:%02d", hours, mins, secs);
+            }
+
+            if (g_cfg.getBool(m_name, "show_laps", true)) {
+                if (g_cfg.getBool(m_name, "show_SoF", true) || g_cfg.getBool(m_name, "show_track_temp", true) || g_cfg.getBool(m_name, "show_session_end", true)) {
+                    swprintf( footer_text + wcslen(footer_text), sizeof(footer_text) / sizeof(wchar_t) - wcslen(footer_text), L"       ");
+                }
+                swprintf( footer_text + wcslen(footer_text), sizeof(footer_text) / sizeof(wchar_t) - wcslen(footer_text), L"Laps: %d/%hs%d", laps, (irTotalLaps == 32767 ? "~" : ""), totalLaps);
+            }
+
             y = m_height - (m_height-ybottom)/2;
             m_brush->SetColor( headerCol );
-            m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff, (float)m_width-2*xoff, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+            m_text.render( m_renderTarget.Get(), footer_text, m_textFormat.Get(), xoff, (float)m_width-2*xoff, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
         }
 
         m_renderTarget->EndDraw();
