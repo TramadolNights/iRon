@@ -43,7 +43,7 @@ public:
 
     enum class Columns { POSITION, CAR_NUMBER, NAME, GAP, BEST, LAST, LICENSE, IRATING, CAR_BRAND, PIT, DELTA, L5, POSITIONS_GAINED };
 
-    OverlayStandings(Microsoft::WRL::ComPtr<ID3D11Device> d3dDevice, map<string, IWICFormatConverter*> carBrandIconsMap)
+    OverlayStandings(Microsoft::WRL::ComPtr<ID3D11Device> d3dDevice, map<string, IWICFormatConverter*> carBrandIconsMap, bool carBrandIconsLoaded)
         : Overlay("OverlayStandings", d3dDevice)
     {
         m_avgL5Times.reserve(IR_MAX_CARS);
@@ -58,6 +58,7 @@ public:
         }
 
         this->m_carBrandIconsMap = carBrandIconsMap;
+        this->m_carBrandIconsLoaded = carBrandIconsLoaded;
     }
 
 protected:
@@ -535,7 +536,7 @@ protected:
             }
 
             // Car brand
-            if (clm = m_columns.get((int)Columns::CAR_BRAND))
+            if ( ( clm = m_columns.get((int)Columns::CAR_BRAND) ) && m_carBrandIconsLoaded)
             {
                 // if this carID doesn't have a brand yet, find it
                 // TODO: Don't create multiple bitmaps if multiple cars use the same icon
@@ -693,6 +694,7 @@ protected:
     ColumnLayout m_columns;
     TextCache    m_text;
     vector<vector<float>> m_avgL5Times;
+    bool m_carBrandIconsLoaded;
     map<string, IWICFormatConverter*> m_carBrandIconsMap;
     map<int, ID2D1Bitmap*> m_carIdToIconMap;
     std::set<std::string> notFoundBrands;

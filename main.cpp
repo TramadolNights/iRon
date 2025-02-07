@@ -165,7 +165,7 @@ void LoadPNGImage(const wchar_t* filePath, ComPtr<IWICImagingFactory>& wicFactor
 
 }
 
-static void LoadCarIcons(map<string, IWICFormatConverter*>& carBrandIconsMap) {
+static bool LoadCarIcons(map<string, IWICFormatConverter*>& carBrandIconsMap) {
     const wchar_t* directory = L"./carIcons";
 
     CoInitialize(nullptr);
@@ -195,9 +195,11 @@ static void LoadCarIcons(map<string, IWICFormatConverter*>& carBrandIconsMap) {
                 carBrandIconsMap[brandName] = formatConverter.Get();
             }
         }
+        return true;
     }
     else {
-        cout << "Cars icons folder not found!" << endl;
+        cout << "#### Cars icons folder not found! ####" << endl;
+        return false;
     }
 
 }
@@ -227,8 +229,12 @@ int main()
     g_cfg.load();
     g_cfg.watchForChanges();
 
+    // Load car brand icons
+    bool carBrandIconsLoaded = false;
     map<string, IWICFormatConverter*> carBrandIconsMap;
-    LoadCarIcons(carBrandIconsMap);
+    if (g_cfg.getBool("OverlayStandings", "show_car_brand", true)) {
+        carBrandIconsLoaded = LoadCarIcons(carBrandIconsMap);
+    }
 
     // Register global hotkeys
     registerHotkeys();
@@ -275,7 +281,7 @@ int main()
     overlays.push_back( new OverlayCover(m_d3dDevice) );
     overlays.push_back( new OverlayRelative(m_d3dDevice) );
     overlays.push_back( new OverlayInputs(m_d3dDevice) );
-    overlays.push_back( new OverlayStandings(m_d3dDevice, carBrandIconsMap ) );
+    overlays.push_back( new OverlayStandings(m_d3dDevice, carBrandIconsMap, carBrandIconsLoaded) );
     overlays.push_back( new OverlayDDU(m_d3dDevice) );
     overlays.push_back(new OverlayRadar(m_d3dDevice) );
 
