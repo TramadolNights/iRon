@@ -32,6 +32,7 @@ SOFTWARE.
 #include <stdlib.h>
 #include <stdio.h>
 #include <string>
+#include <locale.h>
 #include <vector>
 #include <iostream>
 #include <filesystem>
@@ -212,6 +213,15 @@ int main()
 #endif
     // Bump priority up so we get time from the sim
     SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
+    
+    // Disable QuickEdit Mode, so we don't hang the program accidentally
+    DWORD prev_mode;
+    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+    GetConsoleMode(hStdin, &prev_mode); 
+    SetConsoleMode(hStdin, ENABLE_EXTENDED_FLAGS | 
+        (prev_mode & ~ENABLE_QUICK_EDIT_MODE));
+
+    setlocale(LC_ALL, "");
 
     // Load the config and watch it for changes
     g_cfg.load();

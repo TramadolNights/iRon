@@ -232,7 +232,9 @@ protected:
                 string str = formatLaptime(pair.second.best);
         }
 
-        const CarInfo ciSelf = carInfo[ir_PlayerCarIdx.getInt() > 0 ? hasPacecar ? ir_PlayerCarIdx.getInt() - 1 : ir_PlayerCarIdx.getInt() : 0];
+        //const CarInfo ciSelf = carInfo[ir_PlayerCarIdx.getInt() > 0 ? hasPacecar ? ir_PlayerCarIdx.getInt() - 1 : ir_PlayerCarIdx.getInt() : 0];
+        // Sometimes the offset is not necessary. In a free practice session it didn't need it, but in a qualifying it did
+        const CarInfo ciSelf = carInfo[ir_session.driverCarIdx];
         
         // Sort by position
         sort( carInfo.begin(), carInfo.end(),
@@ -374,8 +376,10 @@ protected:
         // Content
         
         int carsToDraw = ((ybottom - 2 * yoff) / lineHeight) -1 ;
+        int carsToSkip;
         if (carsToDraw >= carsInClass) {
             numTopDrivers = carsToDraw;
+            carsToSkip = 0;
         }
         else {
             // cars to add ahead = total cars - position
@@ -384,15 +388,24 @@ protected:
             numTopDrivers += max(carsToDraw - (numTopDrivers+numAheadDrivers+numBehindDrivers+2), 0);
             numBehindDrivers += max(carsToDraw - (ciSelf.position + numBehindDrivers), 0);
 
+            if (ciSelf.position < numTopDrivers + numAheadDrivers) {
+                carsToSkip = 0;
+            }
+            else if (ciSelf.position > carsInClass - numBehindDrivers) {
+                carsToSkip = carsInClass - numTopDrivers - numBehindDrivers - numAheadDrivers - 1;
+            }
+            else carsToSkip = 0;
         }
-        //printf("Cars to draw : %d", carsToDraw);
-        //std::cout << std::endl;
+        //printf("Cars to draw : %d\n", carsToDraw);
         int drawnCars = 0;
         int ownClass = ir_PlayerCarClass.getInt();
         int selfClassDrivers = 0;
         bool skippedCars = false;
+        int numSkippedCars = 0;
         for( int i=0; i<(int)carInfo.size(); ++i )
         {
+            if (drawnCars > carsToDraw) break;
+
             y = 2*yoff + lineHeight/2 + (drawnCars+1)*lineHeight;
             
             if (carInfo[i].classIdx != ownClass) {
@@ -405,17 +418,19 @@ protected:
                 break;
 
             // Focus on the driver
-            if (selfPosition > 0 && selfClassDrivers > numTopDrivers) {                
-                if (selfClassDrivers < selfPosition - numAheadDrivers) {
+            if (selfPosition > 0 && selfClassDrivers > numTopDrivers) {
+
+                //if (selfClassDrivers < selfPosition - numAheadDrivers) {
+                if (selfClassDrivers > carsToSkip && selfClassDrivers < selfPosition - numAheadDrivers ) {
                     if (!skippedCars) {
                         skippedCars = true;
                         drawnCars++;
                     }
                     continue;
                 }
-                if (selfClassDrivers > selfPosition + numBehindDrivers) {
+                /*if (selfClassDrivers > selfPosition + numBehindDrivers) {
                     continue;
-                }
+                }*/
             }
 
             drawnCars++;

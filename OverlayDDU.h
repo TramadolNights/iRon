@@ -191,37 +191,39 @@ class OverlayDDU : public Overlay
             }
 
             // Static background cache
-            Microsoft::WRL::ComPtr<ID2D1BitmapRenderTarget> m_BmpTarget;
-            m_renderTarget->CreateCompatibleRenderTarget(&m_BmpTarget);
-            m_BmpTarget->BeginDraw();
-            m_BmpTarget->Clear();
+            Microsoft::WRL::ComPtr<ID2D1BitmapRenderTarget> bmpTarget;
+            m_renderTarget->CreateCompatibleRenderTarget(&bmpTarget);
+            bmpTarget->BeginDraw();
+            bmpTarget->Clear();
             
             // Draw the background
             m_brush->SetColor( g_cfg.getFloat4( m_name, "background_col", float4(0,0,0,0.5f) ) );
-            m_BmpTarget->FillGeometry( m_backgroundPathGeometry.Get(), m_brush.Get() );
+            bmpTarget->FillGeometry( m_backgroundPathGeometry.Get(), m_brush.Get() );
 
             // Draw the boxes and static texts
             // FIXME: Move outlineCol and other variables to m_cfg_outlineCol so we don't declare TWO default values?
             const float4 outlineCol         = g_cfg.getFloat4( m_name, "outline_col", float4(0.7f,0.7f,0.7f,0.9f) );
             m_brush->SetColor( outlineCol );
-            m_BmpTarget->DrawGeometry( m_boxPathGeometry.Get(), m_brush.Get() );
-            m_text.render( m_BmpTarget.Get(), L"Lap",     m_textFormatSmall.Get(), m_boxLaps.x0, m_boxLaps.x1, m_boxLaps.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
-            m_text.render( m_BmpTarget.Get(), L"Pos",     m_textFormatSmall.Get(), m_boxPos.x0, m_boxPos.x1, m_boxPos.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
-            m_text.render( m_BmpTarget.Get(), L"Lap \u0394",m_textFormatSmall.Get(), m_boxLapDelta.x0, m_boxLapDelta.x1, m_boxLapDelta.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
-            m_text.render( m_BmpTarget.Get(), L"Best",    m_textFormatSmall.Get(), m_boxBest.x0, m_boxBest.x1, m_boxBest.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
-            m_text.render( m_BmpTarget.Get(), L"Last",    m_textFormatSmall.Get(), m_boxLast.x0, m_boxLast.x1, m_boxLast.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
-            m_text.render( m_BmpTarget.Get(), L"P1 Last", m_textFormatSmall.Get(), m_boxP1Last.x0, m_boxP1Last.x1, m_boxP1Last.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
-            m_text.render( m_BmpTarget.Get(), L"Fuel",    m_textFormatSmall.Get(), m_boxFuel.x0, m_boxFuel.x1, m_boxFuel.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
-            m_text.render( m_BmpTarget.Get(), L"Tires",   m_textFormatSmall.Get(), m_boxTires.x0, m_boxTires.x1, m_boxTires.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
-            m_text.render( m_BmpTarget.Get(), L"vs Best", m_textFormatSmall.Get(), m_boxDelta.x0, m_boxDelta.x1, m_boxDelta.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
-            m_text.render( m_BmpTarget.Get(), L"Session", m_textFormatSmall.Get(), m_boxSession.x0, m_boxSession.x1, m_boxSession.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
-            m_text.render( m_BmpTarget.Get(), L"Bias",    m_textFormatSmall.Get(), m_boxBias.x0, m_boxBias.x1, m_boxBias.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
-            m_text.render( m_BmpTarget.Get(), L"Inc",     m_textFormatSmall.Get(), m_boxInc.x0, m_boxInc.x1, m_boxInc.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
-            m_text.render( m_BmpTarget.Get(), L"Oil",     m_textFormatSmall.Get(), m_boxOil.x0, m_boxOil.x1, m_boxOil.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
-            m_text.render( m_BmpTarget.Get(), L"Water",   m_textFormatSmall.Get(), m_boxWater.x0, m_boxWater.x1, m_boxWater.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+            bmpTarget->DrawGeometry( m_boxPathGeometry.Get(), m_brush.Get() );
+            m_text.render( bmpTarget.Get(), L"Lap",     m_textFormatSmall.Get(), m_boxLaps.x0, m_boxLaps.x1, m_boxLaps.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+            m_text.render( bmpTarget.Get(), L"Pos",     m_textFormatSmall.Get(), m_boxPos.x0, m_boxPos.x1, m_boxPos.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+            m_text.render( bmpTarget.Get(), L"Lap \u0394",m_textFormatSmall.Get(), m_boxLapDelta.x0, m_boxLapDelta.x1, m_boxLapDelta.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+            m_text.render( bmpTarget.Get(), L"Best",    m_textFormatSmall.Get(), m_boxBest.x0, m_boxBest.x1, m_boxBest.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+            m_text.render( bmpTarget.Get(), L"Last",    m_textFormatSmall.Get(), m_boxLast.x0, m_boxLast.x1, m_boxLast.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+            m_text.render( bmpTarget.Get(), L"P1 Last", m_textFormatSmall.Get(), m_boxP1Last.x0, m_boxP1Last.x1, m_boxP1Last.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+            m_text.render( bmpTarget.Get(), L"Fuel",    m_textFormatSmall.Get(), m_boxFuel.x0, m_boxFuel.x1, m_boxFuel.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+            m_text.render( bmpTarget.Get(), L"Tires",   m_textFormatSmall.Get(), m_boxTires.x0, m_boxTires.x1, m_boxTires.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+            m_text.render( bmpTarget.Get(), L"vs Best", m_textFormatSmall.Get(), m_boxDelta.x0, m_boxDelta.x1, m_boxDelta.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+            m_text.render( bmpTarget.Get(), L"Session", m_textFormatSmall.Get(), m_boxSession.x0, m_boxSession.x1, m_boxSession.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+            m_text.render( bmpTarget.Get(), L"Bias",    m_textFormatSmall.Get(), m_boxBias.x0, m_boxBias.x1, m_boxBias.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+            m_text.render( bmpTarget.Get(), L"Inc",     m_textFormatSmall.Get(), m_boxInc.x0, m_boxInc.x1, m_boxInc.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+            m_text.render( bmpTarget.Get(), L"Oil",     m_textFormatSmall.Get(), m_boxOil.x0, m_boxOil.x1, m_boxOil.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+            m_text.render( bmpTarget.Get(), L"Water",   m_textFormatSmall.Get(), m_boxWater.x0, m_boxWater.x1, m_boxWater.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
             
-            m_BmpTarget->EndDraw();
-            m_BmpTarget->GetBitmap(&m_backgroundBitmap);
+            bmpTarget->EndDraw();
+            bmpTarget->GetBitmap(&m_backgroundBitmap);
+            // Delete or release m_BmpTarget?
+            //bmpTarget->Release();
         }
 
         virtual void onSessionChanged()
@@ -506,8 +508,12 @@ class OverlayDDU : public Overlay
                         const float usedLastLap = std::max( 0.0f, m_lapStartRemainingFuel - remainingFuel );
                         m_lapStartRemainingFuel = remainingFuel;
 
-                        if( m_isValidFuelLap )
+                        if (m_isValidFuelLap) {
                             m_fuelUsedLastLaps.push_back( usedLastLap );
+#ifdef _DEBUG
+                            printf("Pushing fuel lap: %f\n", usedLastLap);
+#endif
+                        }
 
                         const int numLapsToAvg = g_cfg.getInt( m_name, "fuel_estimate_avg_green_laps", 4 );
                         while( m_fuelUsedLastLaps.size() > numLapsToAvg )

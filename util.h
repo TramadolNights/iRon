@@ -358,14 +358,16 @@ class TextCache
 
             if( it == m_cache.end() )
             {
+                //printf("Not cached: %ls\n", str);
                 m_factory->CreateTextLayout( str, len, textFormat, width, fontSize*2, &textLayout );
                 if (!noCache) {
                     m_cache.insert(std::make_pair(hash, textLayout));
+                    //printf("Caching!\n");
                 }
-                
             }
             else
             {
+                //printf("Already cached: %ls\n", str);
                 textLayout = it->second;
             }
 
