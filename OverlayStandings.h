@@ -26,6 +26,7 @@ SOFTWARE.
 
 #include <assert.h>
 #include <set>
+#include <format>
 #include "Overlay.h"
 #include "Config.h"
 #include "OverlayDebug.h"
@@ -99,16 +100,27 @@ protected:
         m_columns.add( (int)Columns::POSITION,   computeTextExtent( L"P99", m_dwriteFactory.Get(), m_textFormat.Get() ).x, fontSize/2 );
         m_columns.add( (int)Columns::CAR_NUMBER, computeTextExtent( L"#999", m_dwriteFactory.Get(), m_textFormat.Get() ).x, fontSize/2 );
         m_columns.add( (int)Columns::NAME,       0, fontSize/2 );
-        m_columns.add( (int)Columns::PIT,        computeTextExtent( L"P.Age", m_dwriteFactory.Get(), m_textFormat.Get() ).x, fontSize/2 );
-        m_columns.add( (int)Columns::LICENSE,    computeTextExtent( L"A 4.44", m_dwriteFactory.Get(), m_textFormatSmall.Get() ).x, fontSize/6 );
-        m_columns.add( (int)Columns::IRATING,    computeTextExtent( L" 9.9k ", m_dwriteFactory.Get(), m_textFormatSmall.Get() ).x, fontSize/6 );
+
+        if (g_cfg.getBool(m_name, "show_pit", true))
+            m_columns.add( (int)Columns::PIT,        computeTextExtent( L"P.Age", m_dwriteFactory.Get(), m_textFormat.Get() ).x, fontSize/2 );
+
+        if (g_cfg.getBool(m_name, "show_license", true))
+            m_columns.add( (int)Columns::LICENSE,    computeTextExtent( L"A 4.44", m_dwriteFactory.Get(), m_textFormatSmall.Get() ).x, fontSize/6 );
+
+        if (g_cfg.getBool(m_name, "show_irating", true))
+            m_columns.add( (int)Columns::IRATING,    computeTextExtent( L" 9.9k ", m_dwriteFactory.Get(), m_textFormatSmall.Get() ).x, fontSize/6 );
 
         if (g_cfg.getBool(m_name, "show_car_brand", true))
             m_columns.add( (int)Columns::CAR_BRAND,  30, fontSize / 2);
 
-        m_columns.add( (int)Columns::POSITIONS_GAINED, computeTextExtent(L"▲99", m_dwriteFactory.Get(), m_textFormat.Get()).x, fontSize / 2);
-        m_columns.add( (int)Columns::GAP,        computeTextExtent(L"999.9", m_dwriteFactory.Get(), m_textFormat.Get()).x, fontSize / 2 );
-        m_columns.add( (int)Columns::BEST,       computeTextExtent( L"99:99.999", m_dwriteFactory.Get(), m_textFormat.Get() ).x, fontSize/2 );
+        if (g_cfg.getBool(m_name, "show_positions_gained", true))
+            m_columns.add( (int)Columns::POSITIONS_GAINED, computeTextExtent(L"▲99", m_dwriteFactory.Get(), m_textFormat.Get()).x, fontSize / 2);
+
+        if (g_cfg.getBool(m_name, "show_gap", true))
+            m_columns.add( (int)Columns::GAP,        computeTextExtent(L"999.9", m_dwriteFactory.Get(), m_textFormat.Get()).x, fontSize / 2 );
+
+        if (g_cfg.getBool(m_name, "show_best", true))
+            m_columns.add( (int)Columns::BEST,       computeTextExtent( L"99:99.999", m_dwriteFactory.Get(), m_textFormat.Get() ).x, fontSize/2 );
 
         if (g_cfg.getBool(m_name, "show_lap_time", true))
             m_columns.add( (int)Columns::LAST,   computeTextExtent( L"99:99.999", m_dwriteFactory.Get(), m_textFormat.Get() ).x, fontSize/2 );
@@ -116,7 +128,7 @@ protected:
         if (g_cfg.getBool(m_name, "show_delta", true))
             m_columns.add( (int)Columns::DELTA,  computeTextExtent( L"99.99", m_dwriteFactory.Get(), m_textFormat.Get() ).x, fontSize/2 );
 
-        if (g_cfg.getBool(m_name, "show_L5", false))
+        if (g_cfg.getBool(m_name, "show_L5", true))
             m_columns.add( (int)Columns::L5,     computeTextExtent(L"99.99.999", m_dwriteFactory.Get(), m_textFormat.Get()).x, fontSize / 2 );
     }
 
@@ -330,36 +342,42 @@ protected:
         swprintf( s, _countof(s), L"Driver" );
         m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_LEADING );
 
-        clm = m_columns.get( (int)Columns::PIT );
-        swprintf( s, _countof(s), L"P.Age" );
-        m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+        if (clm = m_columns.get( (int)Columns::PIT )) {
+            swprintf( s, _countof(s), L"P.Age" );
+            m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+        }
 
-        clm = m_columns.get( (int)Columns::LICENSE );
-        swprintf( s, _countof(s), L"SR" );
-        m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+        if (clm = m_columns.get( (int)Columns::LICENSE )) {
+            swprintf( s, _countof(s), L"SR" );
+            m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+        }
 
-        clm = m_columns.get( (int)Columns::IRATING );
-        swprintf( s, _countof(s), L"IR" );
-        m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+        if (clm = m_columns.get( (int)Columns::IRATING )) {
+            swprintf( s, _countof(s), L"IR" );
+            m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+        }
 
         if (clm = m_columns.get((int)Columns::CAR_BRAND)) {
             swprintf(s, _countof(s), L"  ");
             m_text.render(m_renderTarget.Get(), s, m_textFormat.Get(), xoff + clm->textL, xoff + clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_TRAILING);
         }
 
-        clm = m_columns.get((int)Columns::POSITIONS_GAINED);
-        swprintf(s, _countof(s), L" ");
-        m_text.render(m_renderTarget.Get(), s, m_textFormat.Get(), xoff + clm->textL, xoff + clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER);
+        if (clm = m_columns.get((int)Columns::POSITIONS_GAINED)) {
+            swprintf(s, _countof(s), L" ");
+            m_text.render(m_renderTarget.Get(), s, m_textFormat.Get(), xoff + clm->textL, xoff + clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER);
+        }
 
-        clm = m_columns.get((int)Columns::GAP);
-        swprintf(s, _countof(s), L"Gap");
-        m_text.render(m_renderTarget.Get(), s, m_textFormat.Get(), xoff + clm->textL, xoff + clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_TRAILING);
+        if (clm = m_columns.get((int)Columns::GAP)) {
+            swprintf(s, _countof(s), L"Gap");
+            m_text.render(m_renderTarget.Get(), s, m_textFormat.Get(), xoff + clm->textL, xoff + clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_TRAILING);
+        }
 
-        clm = m_columns.get( (int)Columns::BEST );
-        swprintf( s, _countof(s), L"Best" );
-        m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_TRAILING );
+        if (clm = m_columns.get((int)Columns::BEST )) {
+            swprintf( s, _countof(s), L"Best" );
+            m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_TRAILING );
+        }
 
-        if (clm = m_columns.get( (int)Columns::LAST ) ) {
+        if (clm = m_columns.get((int)Columns::LAST ) ) {
             swprintf(s, _countof(s), L"Last");
             m_text.render(m_renderTarget.Get(), s, m_textFormat.Get(), xoff + clm->textL, xoff + clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_TRAILING);
         }
@@ -489,25 +507,25 @@ protected:
             // Pit age
             if( !ir_isPreStart() && (ci.pitAge>=0||ir_CarIdxOnPitRoad.getBool(ci.carIdx)) )
             {
-                clm = m_columns.get( (int)Columns::PIT );
-                m_brush->SetColor( pitCol );
-                swprintf( s, _countof(s), L"%d", ci.pitAge );
-                r = { xoff+clm->textL, y-lineHeight/2+2, xoff+clm->textR, y+lineHeight/2-2 };
-                if( ir_CarIdxOnPitRoad.getBool(ci.carIdx) ) {
-                    swprintf( s, _countof(s), L"PIT" );
-                    m_renderTarget->FillRectangle( &r, m_brush.Get() );
-                    m_brush->SetColor( float4(0,0,0,1) );
-                }
-                else {
+                if (clm = m_columns.get( (int)Columns::PIT )){
+                    m_brush->SetColor( pitCol );
                     swprintf( s, _countof(s), L"%d", ci.pitAge );
-                    m_renderTarget->DrawRectangle( &r, m_brush.Get() );
+                    r = { xoff+clm->textL, y-lineHeight/2+2, xoff+clm->textR, y+lineHeight/2-2 };
+                    if( ir_CarIdxOnPitRoad.getBool(ci.carIdx) ) {
+                        swprintf( s, _countof(s), L"PIT" );
+                        m_renderTarget->FillRectangle( &r, m_brush.Get() );
+                        m_brush->SetColor( float4(0,0,0,1) );
+                    }
+                    else {
+                        swprintf( s, _countof(s), L"%d", ci.pitAge );
+                        m_renderTarget->DrawRectangle( &r, m_brush.Get() );
+                    }
+                    m_text.render( m_renderTarget.Get(), s, m_textFormatSmall.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
                 }
-                m_text.render( m_renderTarget.Get(), s, m_textFormatSmall.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
             }
 
             // License/SR
-            {
-                clm = m_columns.get( (int)Columns::LICENSE );
+            if (clm = m_columns.get( (int)Columns::LICENSE )) {
                 swprintf( s, _countof(s), L"%C %.1f", car.licenseChar, car.licenseSR );
                 r = { xoff+clm->textL, y-lineHeight/2, xoff+clm->textR, y+lineHeight/2 };
                 rr.rect = { r.left+1, r.top+1, r.right-1, r.bottom-1 };
@@ -522,8 +540,7 @@ protected:
             }
 
             // Irating
-            {
-                clm = m_columns.get( (int)Columns::IRATING );
+            if (clm = m_columns.get((int)Columns::IRATING)) {
                 swprintf( s, _countof(s), L"%.1fk", (float)car.irating/1000.0f );
                 r = { xoff+clm->textL, y-lineHeight/2, xoff+clm->textR, y+lineHeight/2 };
                 rr.rect = { r.left+1, r.top+1, r.right-1, r.bottom-1 };
@@ -557,9 +574,7 @@ protected:
             }
 
             // Positions gained
-            {
-                clm = m_columns.get((int)Columns::POSITIONS_GAINED);
-
+            if (clm = m_columns.get((int)Columns::POSITIONS_GAINED)) {
                 if (ci.positionsChanged == 0) {
                     swprintf(s, _countof(s), L"-");
                     m_text.render(m_renderTarget.Get(), s, m_textFormat.Get(), xoff + clm->textL, xoff + clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_TRAILING);
@@ -586,18 +601,18 @@ protected:
             // Gap
             if (ci.lapGap || ci.gap)
             {
-                clm = m_columns.get((int)Columns::GAP);
-                if (ci.lapGap < 0)
-                    swprintf(s, _countof(s), L"%d L", ci.lapGap);
-                else
-                    swprintf(s, _countof(s), L"%.01f", ci.gap);
-                m_brush->SetColor(textCol);
-                m_text.render(m_renderTarget.Get(), s, m_textFormat.Get(), xoff + clm->textL, xoff + clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_TRAILING);
+                if (clm = m_columns.get((int)Columns::GAP)) {
+                    if (ci.lapGap < 0)
+                        swprintf(s, _countof(s), L"%d L", ci.lapGap);
+                    else
+                        swprintf(s, _countof(s), L"%.01f", ci.gap);
+                    m_brush->SetColor(textCol);
+                    m_text.render(m_renderTarget.Get(), s, m_textFormat.Get(), xoff + clm->textL, xoff + clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_TRAILING);
+                }
             }
 
             // Best
-            {
-                clm = m_columns.get( (int)Columns::BEST );
+            if (clm = m_columns.get( (int)Columns::BEST )) {
                 str.clear();
                 if( ci.best > 0 )
                     str = formatLaptime( ci.best );
@@ -672,10 +687,44 @@ protected:
 
             m_brush->SetColor(float4(1,1,1,0.4f));
             m_renderTarget->DrawLine( float2(0,ybottom),float2((float)m_width,ybottom),m_brush.Get() );
-            swprintf( s, _countof(s), L"SoF: %d       Track Temp: %.1f°%c      Session end: %d:%02d:%02d       Laps: %d/%hs%d", ir_session.sof, trackTemp, tempUnit, hours, mins, secs, laps, (irTotalLaps == 32767 ? "~" : ""), totalLaps);
+
+            str.clear();
+            bool addSpaces = false;
+
+            if (g_cfg.getBool(m_name, "show_SoF", true)) {
+                int sof = ir_session.sof;
+                if (sof < 0) sof = 0;
+                str += std::format("SoF: {}", sof);
+                addSpaces = true;
+            }
+
+            if (g_cfg.getBool(m_name, "show_track_temp", true)) {
+                if (addSpaces) {
+                    str += "       ";
+                }
+                str += std::vformat("Track Temp: {:.1f}{:c}", std::make_format_args(trackTemp, tempUnit));
+                addSpaces = true;
+            }
+
+            if (g_cfg.getBool(m_name, "show_session_end", true)) {
+                if (addSpaces) {
+                    str += "       ";
+                }
+                str += std::vformat("Session end: {}:{:0>2}:{:0>2}", std::make_format_args(hours, mins, secs));
+                addSpaces = true;
+            }
+
+            if (g_cfg.getBool(m_name, "show_laps", true)) {
+                if (addSpaces) {
+                    str += "       ";
+                }
+                str += std::format("Laps: {}/{}{}", laps, (irTotalLaps == 32767 ? "~" : ""), totalLaps);
+                addSpaces = true;
+            }
+
             y = m_height - (m_height-ybottom)/2;
             m_brush->SetColor( headerCol );
-            m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff, (float)m_width-2*xoff, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+            m_text.render( m_renderTarget.Get(), toWide(str).c_str(), m_textFormat.Get(), xoff, (float)m_width-2*xoff, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
         }
 
         m_renderTarget->EndDraw();
