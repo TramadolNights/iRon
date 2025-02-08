@@ -26,6 +26,7 @@ SOFTWARE.
 
 #include <assert.h>
 #include <set>
+#include <format>
 #include "Overlay.h"
 #include "Config.h"
 #include "OverlayDebug.h"
@@ -100,34 +101,34 @@ protected:
         m_columns.add( (int)Columns::CAR_NUMBER, computeTextExtent( L"#999", m_dwriteFactory.Get(), m_textFormat.Get() ).x, fontSize/2 );
         m_columns.add( (int)Columns::NAME,       0, fontSize/2 );
 
-        if (g_cfg.getBool(m_name, "show_pit", false))
+        if (g_cfg.getBool(m_name, "show_pit", true))
             m_columns.add( (int)Columns::PIT,        computeTextExtent( L"P.Age", m_dwriteFactory.Get(), m_textFormat.Get() ).x, fontSize/2 );
 
-        if (g_cfg.getBool(m_name, "show_license", false))
+        if (g_cfg.getBool(m_name, "show_license", true))
             m_columns.add( (int)Columns::LICENSE,    computeTextExtent( L"A 4.44", m_dwriteFactory.Get(), m_textFormatSmall.Get() ).x, fontSize/6 );
 
-        if (g_cfg.getBool(m_name, "show_irating", false))
+        if (g_cfg.getBool(m_name, "show_irating", true))
             m_columns.add( (int)Columns::IRATING,    computeTextExtent( L" 9.9k ", m_dwriteFactory.Get(), m_textFormatSmall.Get() ).x, fontSize/6 );
 
-        if (g_cfg.getBool(m_name, "show_car_brand", false))
+        if (g_cfg.getBool(m_name, "show_car_brand", true))
             m_columns.add( (int)Columns::CAR_BRAND,  30, fontSize / 2);
 
-        if (g_cfg.getBool(m_name, "show_positions_gained", false))
+        if (g_cfg.getBool(m_name, "show_positions_gained", true))
             m_columns.add( (int)Columns::POSITIONS_GAINED, computeTextExtent(L"▲99", m_dwriteFactory.Get(), m_textFormat.Get()).x, fontSize / 2);
 
-        if (g_cfg.getBool(m_name, "show_gap", false))
+        if (g_cfg.getBool(m_name, "show_gap", true))
             m_columns.add( (int)Columns::GAP,        computeTextExtent(L"999.9", m_dwriteFactory.Get(), m_textFormat.Get()).x, fontSize / 2 );
 
-        if (g_cfg.getBool(m_name, "show_best", false))
+        if (g_cfg.getBool(m_name, "show_best", true))
             m_columns.add( (int)Columns::BEST,       computeTextExtent( L"99:99.999", m_dwriteFactory.Get(), m_textFormat.Get() ).x, fontSize/2 );
 
-        if (g_cfg.getBool(m_name, "show_lap_time", false))
+        if (g_cfg.getBool(m_name, "show_lap_time", true))
             m_columns.add( (int)Columns::LAST,   computeTextExtent( L"99:99.999", m_dwriteFactory.Get(), m_textFormat.Get() ).x, fontSize/2 );
 
-        if (g_cfg.getBool(m_name, "show_delta", false))
+        if (g_cfg.getBool(m_name, "show_delta", true))
             m_columns.add( (int)Columns::DELTA,  computeTextExtent( L"99.99", m_dwriteFactory.Get(), m_textFormat.Get() ).x, fontSize/2 );
 
-        if (g_cfg.getBool(m_name, "show_L5", false))
+        if (g_cfg.getBool(m_name, "show_L5", true))
             m_columns.add( (int)Columns::L5,     computeTextExtent(L"99.99.999", m_dwriteFactory.Get(), m_textFormat.Get()).x, fontSize / 2 );
     }
 
@@ -321,7 +322,6 @@ protected:
 
         const ColumnLayout::Column* clm = nullptr;
         wchar_t s[512];
-        wchar_t footer_text[512] = L"";
         string str;
         D2D1_RECT_F r = {};
         D2D1_ROUNDED_RECT rr = {};
@@ -688,34 +688,43 @@ protected:
             m_brush->SetColor(float4(1,1,1,0.4f));
             m_renderTarget->DrawLine( float2(0,ybottom),float2((float)m_width,ybottom),m_brush.Get() );
 
+            str.clear();
+            bool addSpaces = false;
+
             if (g_cfg.getBool(m_name, "show_SoF", true)) {
-                swprintf( footer_text + wcslen(footer_text), sizeof(footer_text) / sizeof(wchar_t) - wcslen(footer_text), L"SoF: %d", ir_session.sof);
+                int sof = ir_session.sof;
+                if (sof < 0) sof = 0;
+                str += std::format("SoF: {}", sof);
+                addSpaces = true;
             }
 
             if (g_cfg.getBool(m_name, "show_track_temp", true)) {
-                if (g_cfg.getBool(m_name, "show_SoF", true)) {
-                    swprintf( footer_text + wcslen(footer_text), sizeof(footer_text) / sizeof(wchar_t) - wcslen(footer_text), L"       ");
+                if (addSpaces) {
+                    str += "       ";
                 }
-                swprintf( footer_text + wcslen(footer_text), sizeof(footer_text) / sizeof(wchar_t) - wcslen(footer_text), L"Track Temp: %.1f°%c", trackTemp, tempUnit);
+                str += std::vformat("Track Temp: {:.1f}{:c}", std::make_format_args(trackTemp, tempUnit));
+                addSpaces = true;
             }
 
             if (g_cfg.getBool(m_name, "show_session_end", true)) {
-                if (g_cfg.getBool(m_name, "show_SoF", true) || g_cfg.getBool(m_name, "show_track_temp", true)) {
-                    swprintf( footer_text + wcslen(footer_text), sizeof(footer_text) / sizeof(wchar_t) - wcslen(footer_text), L"       ");
+                if (addSpaces) {
+                    str += "       ";
                 }
-                swprintf( footer_text + wcslen(footer_text), sizeof(footer_text) / sizeof(wchar_t) - wcslen(footer_text), L"Session end: %d:%02d:%02d", hours, mins, secs);
+                str += std::vformat("Session end: {}:{:0>2}:{:0>2}", std::make_format_args(hours, mins, secs));
+                addSpaces = true;
             }
 
             if (g_cfg.getBool(m_name, "show_laps", true)) {
-                if (g_cfg.getBool(m_name, "show_SoF", true) || g_cfg.getBool(m_name, "show_track_temp", true) || g_cfg.getBool(m_name, "show_session_end", true)) {
-                    swprintf( footer_text + wcslen(footer_text), sizeof(footer_text) / sizeof(wchar_t) - wcslen(footer_text), L"       ");
+                if (addSpaces) {
+                    str += "       ";
                 }
-                swprintf( footer_text + wcslen(footer_text), sizeof(footer_text) / sizeof(wchar_t) - wcslen(footer_text), L"Laps: %d/%hs%d", laps, (irTotalLaps == 32767 ? "~" : ""), totalLaps);
+                str += std::format("Laps: {}/{}{}", laps, (irTotalLaps == 32767 ? "~" : ""), totalLaps);
+                addSpaces = true;
             }
 
             y = m_height - (m_height-ybottom)/2;
             m_brush->SetColor( headerCol );
-            m_text.render( m_renderTarget.Get(), footer_text, m_textFormat.Get(), xoff, (float)m_width-2*xoff, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+            m_text.render( m_renderTarget.Get(), toWide(str).c_str(), m_textFormat.Get(), xoff, (float)m_width-2*xoff, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
         }
 
         m_renderTarget->EndDraw();

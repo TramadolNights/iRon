@@ -115,3 +115,8 @@ If you encounter a problem, please file a github issue and I'll do my best to ad
 If you'd like to see a specific feature added, feel free to file a github issue as well. If it's something small, I may actually get to it :-) No promises though, as unfortunately the time I can spend on this project is quite limited.
 
 ---
+
+## Donations
+
+If you like this project enough to wonder whether you can contribute financially: first of all, thank you! I'm not looking for donations, but **please consider giving to Ukraine-related charities instead**.
+
