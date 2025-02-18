@@ -75,8 +75,8 @@ class OverlayInputs : public Overlay
             if( m_steerVtx.empty() )
                 m_steerVtx.resize( 1 );
 
-            // Advance input vertices
-            {
+            // Advance input vertices (unless it's a replay and paused):w
+            if ( !( ir_session.isReplay && ir_ReplayPlaySpeed.getInt() == 0 ) ) {
                 for( int i=0; i<(int)m_throttleVtx.size()-1; ++i )
                     m_throttleVtx[i].y = m_throttleVtx[i+1].y;
                 m_throttleVtx[(int)m_throttleVtx.size()-1].y = ir_Throttle.getFloat();
@@ -200,7 +200,7 @@ class OverlayInputs : public Overlay
         virtual bool canEnableWhileNotDriving() const
         {
             // Show only while watching a replay (Session type is unknown while in a replay. Maybe there is a better way to detect it)
-            return ( irsdk_isConnected() && (ir_session.sessionType == SessionType::UNKNOWN) );
+            return ir_session.isReplay;
         }
 
     protected:

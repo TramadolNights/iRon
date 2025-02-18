@@ -418,6 +418,10 @@ ConnectionStatus ir_tick()
             ir_session.sessionType = SessionType::QUALIFY;
         else if( sessionNameStr == "RACE" )
             ir_session.sessionType = SessionType::RACE;
+        
+        std:string simMode;
+        parseYamlStr(sessionYaml, "WeekendInfo:SimMode:", simMode);
+        ir_session.isReplay = (simMode == "replay");
 
         // Driver/car info
         parseYamlInt( sessionYaml, "DriverInfo:DriverCarIdx:", &ir_session.driverCarIdx );

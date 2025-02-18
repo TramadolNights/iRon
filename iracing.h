@@ -92,6 +92,7 @@ struct Car
 struct Session
 {
     SessionType     sessionType = SessionType::UNKNOWN;
+    bool            isReplay;
     Car             cars[IR_MAX_CARS];
     int             numCarClasses = -1;
     int             driverCarIdx = -1;
