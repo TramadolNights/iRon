@@ -197,6 +197,12 @@ class OverlayInputs : public Overlay
             m_renderTarget->EndDraw();
         }
 
+        virtual bool canEnableWhileNotDriving() const
+        {
+            // Show only while watching a replay (Session type is unknown while in a replay. Maybe there is a better way to detect it)
+            return ( irsdk_isConnected() && (ir_session.sessionType == SessionType::UNKNOWN) );
+        }
+
     protected:
 
         std::vector<float2> m_throttleVtx;
