@@ -324,7 +324,7 @@ protected:
             ybottom = m_height - (lineHeight * 2) * 1.2f;
         }
         else {
-			ybottom = m_height - lineHeight * 1.5f;
+            ybottom = m_height - lineHeight * 1.5f;
         }
 
         const ColumnLayout::Column* clm = nullptr;
@@ -735,7 +735,7 @@ protected:
                 if (addSpaces) {
                     str += "       ";
                 }
-                str += std::format("Lap: {}/{}{}", laps, (irTotalLaps == 32767 ? "~" : ""), totalLaps);
+                str += std::format("Laps: {}/{}{}", laps, (irTotalLaps == 32767 ? "~" : ""), totalLaps);
                 addSpaces = true;
             }
 
@@ -784,7 +784,7 @@ protected:
                 m_text.render(m_renderTarget.Get(), toWide(str2).c_str(), m_textFormat.Get(), xoff, (float)m_width - 2 * xoff, y + lineHeight / 2, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER);
             }
             else {
-                m_text.render(m_renderTarget.Get(), toWide(str).c_str(), m_textFormat.Get(), xoff, (float)m_width - 2 * xoff, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_LEADING);
+                m_text.render(m_renderTarget.Get(), toWide(str).c_str(), m_textFormat.Get(), xoff, (float)m_width - 2 * xoff, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER);
 			}
         }
 
