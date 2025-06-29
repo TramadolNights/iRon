@@ -680,7 +680,7 @@ protected:
 
             float trackTemp = ir_TrackTempCrew.getFloat();
             char  tempUnit = 'C';
-            if (imperial && !g_cfg.getBool(m_name, "temp_unit_celcius", true)) {
+            if (imperial && !g_cfg.getBool(m_name, "temp_unit_celsius", true)) {
                 trackTemp = celsiusToFahrenheit(trackTemp);
                 tempUnit = 'F';
             }
