@@ -321,6 +321,8 @@ irsdkCVar ir_LFSHshockDefl_ST("LFSHshockDefl_ST");    // float[6] LFSH shock def
 irsdkCVar ir_LFSHshockVel("LFSHshockVel");    // float[1] LFSH shock velocity (m/s)
 irsdkCVar ir_LFSHshockVel_ST("LFSHshockVel_ST");    // float[6] LFSH shock velocity at 360 Hz (m/s)
 
+irsdkCVar ir_TrackWetness("TrackWetness");	// int[1] Track wetness (0=Unknown,1=Dry,2=MostlyDry,3=VeryLightlyWet,4=LightlyWet,5=ModeratelyWet,6=VeryWet,7=ExtremelyWet) ()
+
 Session ir_session;
 
 static bool parseYamlInt(const char *yamlStr, const char *path, int *dest)

@@ -30,6 +30,7 @@ SOFTWARE.
 #include "Overlay.h"
 #include "Config.h"
 #include "OverlayDebug.h"
+#include "ctime"
 
 using namespace std;
 
@@ -74,7 +75,7 @@ protected:
         m_text.reset();
 
         // Clear car brand bitmap pointers on disable
-        for (auto pair : m_carIdToIconMap) {
+        for (auto& pair : m_carIdToIconMap) {
             pair.second->Release();
         }
         m_carIdToIconMap.clear();
@@ -318,7 +319,13 @@ protected:
         const float yoff = 10;
         m_columns.layout( (float)m_width - 2*xoff );
         float y = yoff + lineHeight/2;
-        const float ybottom = m_height - lineHeight * 1.5f;
+        float ybottom = 0.0;
+        if (g_cfg.getBool(m_name, "show_track_wetness", true) || g_cfg.getBool(m_name, "show_current_time", true)) {
+            ybottom = m_height - (lineHeight * 2) * 1.2f;
+        }
+        else {
+			ybottom = m_height - lineHeight * 1.5f;
+        }
 
         const ColumnLayout::Column* clm = nullptr;
         wchar_t s[512];
@@ -664,12 +671,18 @@ protected:
         
         // Footer
         {
-            float trackTemp = ir_TrackTempCrew.getFloat();
-            char  tempUnit  = 'C';
+            time_t now = time(nullptr);
+            struct tm* date = localtime(&now);
 
-            if( imperial ) {
-                trackTemp = celsiusToFahrenheit( trackTemp );
-                tempUnit  = 'F';
+            int cur_hour = date->tm_hour;
+            int cur_min = date->tm_min;
+            int cur_sec = date->tm_sec;
+
+            float trackTemp = ir_TrackTempCrew.getFloat();
+            char  tempUnit = 'C';
+            if (imperial && !g_cfg.getBool(m_name, "temp_unit_celcius", true)) {
+                trackTemp = celsiusToFahrenheit(trackTemp);
+                tempUnit = 'F';
             }
 
             int hours, mins, secs;
@@ -679,16 +692,20 @@ protected:
             const int remainingLaps = ir_getLapsRemaining();
             const int irTotalLaps = ir_SessionLapsTotal.getInt();
             int totalLaps = remainingLaps;
-            
+
+            string trackState = "Unknown";
+            const int trackWetness = ir_TrackWetness.getInt();
+
             if (irTotalLaps == 32767)
                 totalLaps = laps + remainingLaps;
             else
                 totalLaps = irTotalLaps;
 
-            m_brush->SetColor(float4(1,1,1,0.4f));
-            m_renderTarget->DrawLine( float2(0,ybottom),float2((float)m_width,ybottom),m_brush.Get() );
+            m_brush->SetColor(float4(1, 1, 1, 0.4f));
+            m_renderTarget->DrawLine(float2(0, ybottom), float2((float)m_width, ybottom), m_brush.Get());
 
             str.clear();
+            string str2;
             bool addSpaces = false;
 
             if (g_cfg.getBool(m_name, "show_SoF", true)) {
@@ -710,7 +727,7 @@ protected:
                 if (addSpaces) {
                     str += "       ";
                 }
-                str += std::vformat("Session end: {}:{:0>2}:{:0>2}", std::make_format_args(hours, mins, secs));
+                str += std::vformat("Session End: {}:{:0>2}:{:0>2}", std::make_format_args(hours, mins, secs));
                 addSpaces = true;
             }
 
@@ -718,13 +735,57 @@ protected:
                 if (addSpaces) {
                     str += "       ";
                 }
-                str += std::format("Laps: {}/{}{}", laps, (irTotalLaps == 32767 ? "~" : ""), totalLaps);
+                str += std::format("Lap: {}/{}{}", laps, (irTotalLaps == 32767 ? "~" : ""), totalLaps);
                 addSpaces = true;
             }
 
-            y = m_height - (m_height-ybottom)/2;
-            m_brush->SetColor( headerCol );
-            m_text.render( m_renderTarget.Get(), toWide(str).c_str(), m_textFormat.Get(), xoff, (float)m_width-2*xoff, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+            addSpaces = false;
+
+            if (g_cfg.getBool(m_name, "show_current_time", true)) {
+                str2 += std::vformat("Time: {:0>2}:{:0>2}:{:0>2}", std::make_format_args(cur_hour, cur_min, cur_sec));
+                addSpaces = true;
+            }
+
+            if (g_cfg.getBool(m_name, "show_track_wetness", true)) {
+                if (addSpaces) {
+                    str2 += "       ";
+                }
+                switch (trackWetness) {
+                case irsdk_TrackWetness_Dry:
+                    trackState = "Dry";
+                    break;
+                case irsdk_TrackWetness_MostlyDry:
+                    trackState = "Mostly Dry";
+                    break;
+                case irsdk_TrackWetness_VeryLightlyWet:
+                    trackState = "Very Lightly Wet";
+                    break;
+                case irsdk_TrackWetness_LightlyWet:
+                    trackState = "Lightly Wet";
+                    break;
+                case irsdk_TrackWetness_ModeratelyWet:
+                    trackState = "Moderately Wet";
+                    break;
+                case irsdk_TrackWetness_VeryWet:
+                    trackState = "Very Wet";
+                    break;
+                case irsdk_TrackWetness_ExtremelyWet:
+                    trackState = "Extremely Wet";
+                    break;
+                }
+                str2 += std::format("Track State: {}", trackState);
+                addSpaces = true;
+            }
+
+            y = m_height - (m_height - ybottom) / 2;
+            m_brush->SetColor(headerCol);
+            if (!str2.empty()) {
+                m_text.render(m_renderTarget.Get(), toWide(str).c_str(), m_textFormat.Get(), xoff, (float)m_width - 2 * xoff, y - lineHeight / 2, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER);
+                m_text.render(m_renderTarget.Get(), toWide(str2).c_str(), m_textFormat.Get(), xoff, (float)m_width - 2 * xoff, y + lineHeight / 2, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER);
+            }
+            else {
+                m_text.render(m_renderTarget.Get(), toWide(str).c_str(), m_textFormat.Get(), xoff, (float)m_width - 2 * xoff, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_LEADING);
+			}
         }
 
         m_renderTarget->EndDraw();

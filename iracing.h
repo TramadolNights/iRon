@@ -406,6 +406,8 @@ extern irsdkCVar ir_LFSHshockDefl_ST;    // float[6] LFSH shock deflection at 36
 extern irsdkCVar ir_LFSHshockVel;    // float[1] LFSH shock velocity (m/s)
 extern irsdkCVar ir_LFSHshockVel_ST;    // float[6] LFSH shock velocity at 360 Hz (m/s)
 
+extern irsdkCVar ir_TrackWetness;	// int[1] Track wetness (0=Unkown,1=Dry,2=MostlyDry,3=VeryLightlyWet,4=LightlyWet,5=ModeratelyWet,6=VeryWet,7=ExtremelyWet) ()
+
 extern Session ir_session;
 
 // Keep the session data updated.

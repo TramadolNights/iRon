@@ -247,7 +247,7 @@ class OverlayDDU : public Overlay
             const int  carIdx   = ir_session.driverCarIdx;
             const bool imperial = ir_DisplayUnits.getInt() == 0;
 
-            const DWORD tickCount = GetTickCount();
+            const DWORD tickCount = GetTickCount64();
 
             // Figure out who's P1
             int p1carIdx = -1;

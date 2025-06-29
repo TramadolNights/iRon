@@ -138,7 +138,7 @@ protected:
 
         std::string s = "CarLen: ";
         s.reserve(256);
-        for (const auto carLenData : m_carLength) {
+        for (const auto &carLenData : m_carLength) {
             char t[32];
             snprintf(t, sizeof(t), "%d: %f - ", carLenData.first, carLenData.second);
             s += t;
