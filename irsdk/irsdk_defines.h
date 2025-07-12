@@ -301,6 +301,20 @@ enum irsdk_PaceMode
 	irsdk_PaceModeNotPacing,
 };
 
+enum irsdk_TrackWetness
+{
+  irsdk_TrackWetness_UNKNOWN = 0,
+  irsdk_TrackWetness_Dry,
+  irsdk_TrackWetness_MostlyDry,
+  irsdk_TrackWetness_VeryLightlyWet,
+  irsdk_TrackWetness_LightlyWet,
+  irsdk_TrackWetness_ModeratelyWet,
+  irsdk_TrackWetness_VeryWet,
+  irsdk_TrackWetness_ExtremelyWet
+};
+
+//---
+
 enum irsdk_PaceFlags
 {
 	irsdk_PaceFlagsEndOfLine = 0x01,
