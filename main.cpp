@@ -191,6 +191,7 @@ static bool LoadCarIcons(map<string, IWICFormatConverter*>& carBrandIconsMap) {
                 std::regex pattern("\\.\\w+$");
                 string brandName = iconFilename.path().filename().string();
                 brandName = regex_replace(brandName, pattern, "");
+                brandName = brandName.substr(0, brandName.find('_'));
                 brandName = toLowerCase(brandName);
                 carBrandIconsMap[brandName] = formatConverter.Get();
             }
@@ -240,7 +241,7 @@ int main()
     registerHotkeys();
 
     printf("\n====================================================================================\n");
-    printf("Welcome to iRon! This app provides a few simple overlays for iRacing.\n\n");
+    printf("Welcome to iRon! This app provides a few overlays for iRacing.\n\n");
     printf("NOTE: Most overlays are only active when iRacing is running and the car is on track.\n\n");
     printf("Current hotkeys:\n");
     printf("    Move and resize overlays:     %s\n", g_cfg.getString("General","ui_edit_hotkey","").c_str() );
@@ -256,9 +257,9 @@ int main()
            "stores your settings. You can edit the file at any time, even while iRon is running,\n"\
            "to customize your overlays and hotkeys.\n\n");
     printf("To exit iRon, simply close this console window.\n\n");
-    printf("For the latest version ***of this fork*** or to submit bug reports, go to:\n\n        https://github.com/diegoschneider/iRon\n\n");
-    printf("Many thanks to lespalt (https://github.com/lespalt/iRon) and frmjar (https://github.com/frmjar/iRon) for their work!\n\n");
-    printf("Happy Racing!\n");
+    printf("For the latest version ***of this fork*** or to submit bug reports (I probably can't fix them lol), go to:\n\n        https://github.com/TramadolNights/iRon\n\n");
+    printf("Many thanks to lespalt (https://github.com/lespalt/iRon), frmjar (https://github.com/frmjar/iRon)\n\n& diegoschneider (https://github.com/diegoschneider/iRon) for their work!\n\n");
+    printf("Happy Racing!\n\n");
     printf("====================================================================================\n\n");
 
 #ifdef _DEBUG
