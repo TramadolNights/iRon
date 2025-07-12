@@ -175,10 +175,10 @@ class OverlayDDU : public Overlay
                 m_boxFuel = makeBox( 0.5f+gearw/2+hgap, w2, vtop, h3, "Fuel" );
                 addBoxFigure( geometrySink.Get(), m_boxFuel );
 
-                m_boxBias = makeBox( 0.5f+gearw/2+3*hgap+2*w2, w1, vtop+2*vgap+2*h1, h1, "Bias" );
+                m_boxBias = makeBox( 0.5f+gearw/2+4*(hgap*1.4)+2*w2+1*w1, w1, vtop+2*vgap+2*h1, h1, "Bias" );
                 addBoxFigure( geometrySink.Get(), m_boxBias );
             
-                m_boxTires = makeBox( 0.5f+gearw/2+2*hgap+w2, w2, vtop+2*vgap+2*h1, h1, "Tires" );
+                m_boxTires = makeBox( 0.5f+gearw/2+2*(hgap*1.25)+w2, w2, vtop+2*vgap+2*h1, h1, "Tires" );
                 addBoxFigure( geometrySink.Get(), m_boxTires );
 
                 m_boxOil = makeBox( 0.5f+gearw/2+2*hgap+w2, w1, vtop+vgap+h1, h1, "Oil" );
@@ -186,6 +186,12 @@ class OverlayDDU : public Overlay
 
                 m_boxWater = makeBox( 0.5f+gearw/2+3*hgap+w2+w1, w1, vtop+vgap+h1, h1, "Wat" );
                 addBoxFigure( geometrySink.Get(), m_boxWater );
+
+                m_boxABS = makeBox( 0.5f+gearw/2+3*(hgap*1.4)+2*w2, w1, vtop+vgap+h1, h1, "ABS" );
+                addBoxFigure(geometrySink.Get(), m_boxABS);
+
+				m_boxTC = makeBox( 0.5f+gearw/2+3*(hgap*1.4)+2*w2, w1, vtop+2*vgap+2*h1, h1, "TC" );
+				addBoxFigure(geometrySink.Get(), m_boxTC);
                 
                 geometrySink->Close();
             }
@@ -219,6 +225,8 @@ class OverlayDDU : public Overlay
             m_text.render( bmpTarget.Get(), L"Inc",     m_textFormatSmall.Get(), m_boxInc.x0, m_boxInc.x1, m_boxInc.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
             m_text.render( bmpTarget.Get(), L"Oil",     m_textFormatSmall.Get(), m_boxOil.x0, m_boxOil.x1, m_boxOil.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
             m_text.render( bmpTarget.Get(), L"Water",   m_textFormatSmall.Get(), m_boxWater.x0, m_boxWater.x1, m_boxWater.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+			m_text.render( bmpTarget.Get(), L"ABS",     m_textFormatSmall.Get(), m_boxABS.x0, m_boxABS.x1, m_boxABS.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+			m_text.render( bmpTarget.Get(), L"TC",      m_textFormatSmall.Get(), m_boxTC.x0, m_boxTC.x1, m_boxTC.y0, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
             
             bmpTarget->EndDraw();
             bmpTarget->GetBitmap(&m_backgroundBitmap);
@@ -247,7 +255,9 @@ class OverlayDDU : public Overlay
             const int  carIdx   = ir_session.driverCarIdx;
             const bool imperial = ir_DisplayUnits.getInt() == 0;
 
-            const DWORD tickCount = GetTickCount();
+            const string speedUnit = g_cfg.getString(m_name, "speed_unit", imperial==true ? "imperial" : "metric");
+
+            const DWORD tickCount = GetTickCount64();
 
             // Figure out who's P1
             int p1carIdx = -1;
@@ -359,7 +369,7 @@ class OverlayDDU : public Overlay
                 if( speedMps >= 0 )
                 {
                     float speed = 0;
-                    if( !imperial )
+                    if (speedUnit != "imperial")
                         speed = speedMps * 3.6f;
                     else
                         speed = speedMps * 2.23694f;
@@ -640,83 +650,92 @@ class OverlayDDU : public Overlay
 
             // Tires
             {
-                const float lf = 100.0f * std::min(std::min(ir_LFwearL.getFloat(), ir_LFwearM.getFloat()), ir_LFwearR.getFloat());
-                const float rf = 100.0f * std::min(std::min(ir_RFwearL.getFloat(), ir_RFwearM.getFloat()), ir_RFwearR.getFloat());
-                const float lr = 100.0f * std::min(std::min(ir_LRwearL.getFloat(), ir_LRwearM.getFloat()), ir_LRwearR.getFloat());
-                const float rr = 100.0f * std::min(std::min(ir_RRwearL.getFloat(), ir_RRwearM.getFloat()), ir_RRwearR.getFloat());
+                if (g_cfg.getBool(m_name, "show_tire_wear", false)) {
+                    const float lf = 100.0f * std::min(std::min(ir_LFwearL.getFloat(), ir_LFwearM.getFloat()), ir_LFwearR.getFloat());
+                    const float rf = 100.0f * std::min(std::min(ir_RFwearL.getFloat(), ir_RFwearM.getFloat()), ir_RFwearR.getFloat());
+                    const float lr = 100.0f * std::min(std::min(ir_LRwearL.getFloat(), ir_LRwearM.getFloat()), ir_LRwearR.getFloat());
+                    const float rr = 100.0f * std::min(std::min(ir_RRwearL.getFloat(), ir_RRwearM.getFloat()), ir_RRwearR.getFloat());
 
-                int tireChangeMask = 0;
-                
-                // Open wheelers, cars with ONE Replace box
-                if (ir_dpTireChange.isValid()) {
-                    tireChangeMask = ir_dpTireChange.getInt() * 0xF;
-                }
-                // Oval cars, L/R boxes
-                else if (ir_dpLTireChange.isValid()) {
-                    tireChangeMask = 
-                        ir_dpLTireChange.getInt() * (irsdk_LFTireChange + irsdk_LRTireChange)
-                        + 
-                        ir_dpRTireChange.getInt() * (irsdk_RFTireChange + irsdk_RRTireChange);
-                }
+                    int tireChangeMask = 0;
 
-                // Any other, if we can change individuals, we can change all
-                else if (ir_dpLFTireChange.isValid()) {
-                    tireChangeMask =
-                        ir_dpLFTireChange.getInt() * irsdk_LFTireChange
-                        + ir_dpLRTireChange.getInt() * irsdk_LRTireChange
-                        + ir_dpRFTireChange.getInt() * irsdk_RFTireChange
-                        + ir_dpRRTireChange.getInt() * irsdk_RRTireChange;
-                }
+                    // Open wheelers, cars with ONE Replace box
+                    if (ir_dpTireChange.isValid()) {
+                        tireChangeMask = ir_dpTireChange.getInt() * 0xF;
+                    }
+                    // Oval cars, L/R boxes
+                    else if (ir_dpLTireChange.isValid()) {
+                        tireChangeMask =
+                            ir_dpLTireChange.getInt() * (irsdk_LFTireChange + irsdk_LRTireChange)
+                            +
+                            ir_dpRTireChange.getInt() * (irsdk_RFTireChange + irsdk_RRTireChange);
+                    }
 
-                // Left
-                if(tireChangeMask & irsdk_LFTireChange)
-                    m_brush->SetColor( serviceCol );
-                else
-                    m_brush->SetColor( textCol );
-                swprintf( s, _countof(s), L"%d", (int)(lf+0.5f) );
-                m_text.render( m_renderTarget.Get(), s, m_textFormatSmall.Get(), m_boxTires.x0+20, m_boxTires.x0+m_boxTires.w/2, m_boxTires.y0+m_boxTires.h*1.0f/3.0f, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
-                if (tireChangeMask & irsdk_LRTireChange)
-                    m_brush->SetColor(serviceCol);
-                else
+                    // Any other, if we can change individuals, we can change all
+                    else if (ir_dpLFTireChange.isValid()) {
+                        tireChangeMask =
+                            ir_dpLFTireChange.getInt() * irsdk_LFTireChange
+                            + ir_dpLRTireChange.getInt() * irsdk_LRTireChange
+                            + ir_dpRFTireChange.getInt() * irsdk_RFTireChange
+                            + ir_dpRRTireChange.getInt() * irsdk_RRTireChange;
+                    }
+
+                    // Left
+                    if (tireChangeMask & irsdk_LFTireChange)
+                        m_brush->SetColor(serviceCol);
+                    else
+                        m_brush->SetColor(textCol);
+                    swprintf(s, _countof(s), L"%d%%", (int)(lf + 0.5f));
+                    m_text.render(m_renderTarget.Get(), s, m_textFormatSmall.Get(), m_boxTires.x0 + 6, m_boxTires.x0 + m_boxTires.w / 2, m_boxTires.y0 + m_boxTires.h * 1.0f / 3.0f, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER);
+                    if (tireChangeMask & irsdk_LRTireChange)
+                        m_brush->SetColor(serviceCol);
+                    else
+                        m_brush->SetColor(textCol);
+                    swprintf(s, _countof(s), L"%d%%", (int)(lr + 0.5f));
+                    m_text.render(m_renderTarget.Get(), s, m_textFormatSmall.Get(), m_boxTires.x0 + 6, m_boxTires.x0 + m_boxTires.w / 2, m_boxTires.y0 + m_boxTires.h * 2.0f / 3.0f, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER);
+
+                    // Right
+                    if (tireChangeMask & irsdk_RFTireChange)
+                        m_brush->SetColor(serviceCol);
+                    else
+                        m_brush->SetColor(textCol);
+                    swprintf(s, _countof(s), L"%d%%", (int)(rf + 0.5f));
+                    m_text.render(m_renderTarget.Get(), s, m_textFormatSmall.Get(), m_boxTires.x0 + m_boxTires.w / 2, m_boxTires.x1 - 6, m_boxTires.y0 + m_boxTires.h * 1.0f / 3.0f, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER);
+                    if (tireChangeMask & irsdk_RRTireChange)
+                        m_brush->SetColor(serviceCol);
+                    else
+                        m_brush->SetColor(textCol);
+                    swprintf(s, _countof(s), L"%d%%", (int)(rr + 0.5f));
+                    m_text.render(m_renderTarget.Get(), s, m_textFormatSmall.Get(), m_boxTires.x0 + m_boxTires.w / 2, m_boxTires.x1 - 6, m_boxTires.y0 + m_boxTires.h * 2.0f / 3.0f, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER);
                     m_brush->SetColor(textCol);
-                swprintf( s, _countof(s), L"%d", (int)(lr+0.5f) );
-                m_text.render( m_renderTarget.Get(), s, m_textFormatSmall.Get(), m_boxTires.x0+20, m_boxTires.x0+m_boxTires.w/2, m_boxTires.y0+m_boxTires.h*2.0f/3.0f, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+				}
+                else {
+                    float lf = (ir_LFtempCL.getFloat() + ir_LFtempCM.getFloat() + ir_LFtempCR.getFloat()) / 3;
+					float rf = (ir_RFtempCL.getFloat() + ir_RFtempCM.getFloat() + ir_RFtempCR.getFloat()) / 3;
+					float lr = (ir_LRtempCL.getFloat() + ir_LRtempCM.getFloat() + ir_LRtempCR.getFloat()) / 3;
+					float rr = (ir_RRtempCL.getFloat() + ir_RRtempCM.getFloat() + ir_RRtempCR.getFloat()) / 3;
 
-                // Right
-                if(tireChangeMask & irsdk_RFTireChange)
-                    m_brush->SetColor( serviceCol );
-                else
-                    m_brush->SetColor( textCol );
-                swprintf( s, _countof(s), L"%d", (int)(rf+0.5f) );
-                m_text.render( m_renderTarget.Get(), s, m_textFormatSmall.Get(), m_boxTires.x0+m_boxTires.w/2, m_boxTires.x1-20, m_boxTires.y0+m_boxTires.h*1.0f/3.0f, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
-                if (tireChangeMask & irsdk_RRTireChange)
-                    m_brush->SetColor(serviceCol);
-                else
+                    if ( imperial ) {
+                        lf = celsiusToFahrenheit(lf);
+                        rf = celsiusToFahrenheit(rf);
+                        lr = celsiusToFahrenheit(lr);
+                        rr = celsiusToFahrenheit(rr);
+                    }
+
+                    // Left
+                    swprintf(s, _countof(s), L"%0.1f°", lf);
+                    m_text.render(m_renderTarget.Get(), s, m_textFormatSmall.Get(), m_boxTires.x0 + 6, m_boxTires.x0 + m_boxTires.w / 2, m_boxTires.y0 + m_boxTires.h * 1.0f / 3.0f, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER);
+                    
+                    swprintf(s, _countof(s), L"%0.1f°", lr);
+                    m_text.render(m_renderTarget.Get(), s, m_textFormatSmall.Get(), m_boxTires.x0 + 6, m_boxTires.x0 + m_boxTires.w / 2, m_boxTires.y0 + m_boxTires.h * 2.1f / 3.0f, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER);
+
+                    // Right
+                    swprintf(s, _countof(s), L"%0.1f°", rf);
+                    m_text.render(m_renderTarget.Get(), s, m_textFormatSmall.Get(), m_boxTires.x0 + m_boxTires.w / 2, m_boxTires.x1 - 6, m_boxTires.y0 + m_boxTires.h * 1.0f / 3.0f, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER);
+                    
+                    swprintf(s, _countof(s), L"%0.1f°", rr);
+                    m_text.render(m_renderTarget.Get(), s, m_textFormatSmall.Get(), m_boxTires.x0 + m_boxTires.w / 2, m_boxTires.x1 - 6, m_boxTires.y0 + m_boxTires.h * 2.1f / 3.0f, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER);
                     m_brush->SetColor(textCol);
-                swprintf( s, _countof(s), L"%d", (int)(rr+0.5f) );
-                m_text.render( m_renderTarget.Get(), s, m_textFormatSmall.Get(), m_boxTires.x0+m_boxTires.w/2, m_boxTires.x1-20, m_boxTires.y0+m_boxTires.h*2.0f/3.0f, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
-                m_brush->SetColor( textCol );
-                
-                /* TODO: why doesn't iracing report 255 here in an AI session where we DO have unlimited tire sets??
-
-                // Left available
-                int avail = ir_LeftTireSetsAvailable.getInt();
-                if( avail < 255 )
-                {
-                    swprintf( s, _countof(s), L"%d", avail );
-                    m_text.render( m_renderTarget.Get(), s, m_textFormatSmall.Get(), m_boxTires.x0, m_boxTires.x0+m_boxTires.w/4, m_boxTires.y0+m_boxTires.h*0.5f, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
                 }
-
-                // Right available
-                avail = ir_RightTireSetsAvailable.getInt();
-                if( avail < 255 )
-                {
-                    swprintf( s, _countof(s), L"%d", avail );
-                    m_text.render( m_renderTarget.Get(), s, m_textFormatSmall.Get(), m_boxTires.x0+m_boxTires.w*3.0f/4.0f, m_boxTires.x1, m_boxTires.y0+m_boxTires.h*0.5f, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
-                }
-                */
-
-                m_brush->SetColor( textCol );
             }
 
             // Delta
@@ -777,12 +796,23 @@ class OverlayDDU : public Overlay
 
             // Oil temp
             {
+                // m_brush->SetColor(textCol);
                 float temp = ir_OilTemp.getFloat();
                 if( imperial )
                     temp = celsiusToFahrenheit( temp );
 
                 if( ir_EngineWarnings.getInt() & irsdk_oilTempWarning )
-                    m_brush->SetColor( warnCol );
+					if ( m_OilWarnTickCount+1000 > tickCount )
+                    {
+                        m_brush->SetColor( warnCol );
+                        D2D1_RECT_F r = { m_boxOil.x0, m_boxOil.y0, m_boxOil.x1, m_boxOil.y1 };
+                        m_renderTarget->FillRectangle(&r, m_brush.Get());
+                        m_brush->SetColor( textCol );
+					}
+					else
+                        m_brush->SetColor( warnCol );
+                        if ( m_OilWarnTickCount+1500 < tickCount )
+    						m_OilWarnTickCount = tickCount;
 
                 swprintf( s, _countof(s), L"%3.0f°", temp );
                 m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), m_boxOil.x0, m_boxOil.x1, m_boxOil.y0+m_boxOil.h*0.5f, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
@@ -796,12 +826,59 @@ class OverlayDDU : public Overlay
                     temp = celsiusToFahrenheit( temp );
 
                 if( ir_EngineWarnings.getInt() & irsdk_waterTempWarning )
-                    m_brush->SetColor( warnCol );
+                    if ( m_WaterWarnTickCount+1000 > tickCount )
+                    {
+                        m_brush->SetColor( warnCol );
+                        D2D1_RECT_F r = { m_boxWater.x0, m_boxWater.y0, m_boxWater.x1, m_boxWater.y1 };
+                        m_renderTarget->FillRectangle(&r, m_brush.Get());
+						m_brush->SetColor(textCol);
+					}
+                    else
+                        m_brush->SetColor( warnCol );
+				        if (m_WaterWarnTickCount + 1500 < tickCount)
+					        m_WaterWarnTickCount = tickCount;
 
                 swprintf( s, _countof(s), L"%3.0f°", temp );
                 m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), m_boxWater.x0, m_boxWater.x1, m_boxWater.y0+m_boxWater.h*0.5f, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
                 m_brush->SetColor( textCol );
             }
+
+            // ABS
+            {
+                const int abs = ir_dcABS.getInt();
+                if (m_prevABS == 0) m_prevABS = abs;
+                if (m_prevABS != abs) m_prevABSTickCount = tickCount;
+                if (m_prevABSTickCount + 500 > tickCount)
+                {
+                    m_brush->SetColor(warnCol);
+                    D2D1_RECT_F r = { m_boxABS.x0, m_boxABS.y0, m_boxABS.x1, m_boxABS.y1 };
+                    m_renderTarget->FillRectangle(&r, m_brush.Get());
+                }
+                m_brush->SetColor(textCol);
+                m_prevABS = abs;
+                swprintf(s, _countof(s), L"%d", abs);
+                m_text.render(m_renderTarget.Get(), s, m_textFormat.Get(), m_boxABS.x0, m_boxABS.x1, m_boxABS.y0 + m_boxABS.h * 0.5f, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER);
+                m_brush->SetColor(textCol);
+            }
+
+			// TC
+			{
+				const int tc = ir_dcTractionControl.getInt();
+				if (m_prevTC == 0) m_prevTC = tc;
+				if (m_prevTC != tc) m_prevTCTickCount = tickCount;
+				if (m_prevTCTickCount + 500 > tickCount)
+				{
+					m_brush->SetColor(warnCol);
+					D2D1_RECT_F r = { m_boxTC.x0, m_boxTC.y0, m_boxTC.x1, m_boxTC.y1 };
+					m_renderTarget->FillRectangle(&r, m_brush.Get());
+				}
+				m_brush->SetColor(textCol);
+				m_prevTC = tc;
+				swprintf(s, _countof(s), L"%d", tc);
+				m_text.render(m_renderTarget.Get(), s, m_textFormat.Get(), m_boxTC.x0, m_boxTC.x1, m_boxTC.y0 + m_boxTC.h * 0.5f, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER);
+				m_brush->SetColor(textCol);
+			}
+
 
             m_renderTarget->EndDraw();
         }
@@ -879,6 +956,8 @@ class OverlayDDU : public Overlay
         Box m_boxTires;
         Box m_boxOil;
         Box m_boxWater;
+        Box m_boxABS;
+		Box m_boxTC;
 
         Microsoft::WRL::ComPtr<IDWriteTextFormat>  m_textFormat;
         Microsoft::WRL::ComPtr<IDWriteTextFormat>  m_textFormatBold;
@@ -900,6 +979,16 @@ class OverlayDDU : public Overlay
         
         float               m_prevBrakeBias = 0;
         DWORD               m_prevBrakeBiasTickCount = 0;
+
+        float               m_prevABS = 0;
+        DWORD               m_prevABSTickCount = 0;
+
+		float               m_prevTC = 0;
+		DWORD               m_prevTCTickCount = 0;
+
+        DWORD               m_OilWarnTickCount = 0;
+
+        DWORD               m_WaterWarnTickCount = 0;
 
         float               m_lapStartRemainingFuel = 0;
         std::deque<float>   m_fuelUsedLastLaps;
