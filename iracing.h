@@ -30,7 +30,7 @@ SOFTWARE.
 #include <string>
 #include "util.h"
 
-#define IR_MAX_CARS 64
+constexpr int IR_MAX_CARS = 64;
 
 using namespace std;
 
@@ -57,6 +57,7 @@ struct SessionPosTimes
     float           lastTime = 0;
     float           fastestTime = 0;
     int             position = 0;
+	int			    JokerLapsComplete = 0;
 };
 
 struct Car
@@ -66,7 +67,7 @@ struct Car
     int             carNumber = 0;
     string          carNumberStr;
     string          carName;
-    int             carID;
+    int             carID = 0;
     string          licenseStr;
     char            licenseChar = 'R';
     float           licenseSR = 0;
@@ -92,7 +93,7 @@ struct Car
 struct Session
 {
     SessionType     sessionType = SessionType::UNKNOWN;
-    bool            isReplay;
+    bool            isReplay = false;
     Car             cars[IR_MAX_CARS];
     int             numCarClasses = -1;
     int             driverCarIdx = -1;
@@ -108,6 +109,7 @@ struct Session
     float           rpmSLShift = 0;
     float           rpmSLLast = 0;
     float           rpmSLBlink = 0;
+	int             numJokerLaps = 0;
 };
 
 extern irsdkCVar ir_SessionTime;    // double[1] Seconds since session start (s)
@@ -406,6 +408,10 @@ extern irsdkCVar ir_LFSHshockDefl_ST;    // float[6] LFSH shock deflection at 36
 extern irsdkCVar ir_LFSHshockVel;    // float[1] LFSH shock velocity (m/s)
 extern irsdkCVar ir_LFSHshockVel_ST;    // float[6] LFSH shock velocity at 360 Hz (m/s)
 
+extern irsdkCVar ir_TrackWetness;	// int[1] Track wetness (0=Unkown,1=Dry,2=MostlyDry,3=VeryLightlyWet,4=LightlyWet,5=ModeratelyWet,6=VeryWet,7=ExtremelyWet) ()
+extern irsdkCVar ir_dcABS;  // int[1] ABS setting ()
+extern irsdkCVar ir_dcTractionControl;  // int[1] Traction control setting ()
+
 extern Session ir_session;
 
 // Keep the session data updated.
@@ -439,6 +445,9 @@ int ir_getLapsRemaining();
 
 // Get session time remaining
 void ir_getSessionTimeRemaining(int& hours, int& mins, int& secs);
+
+// Get session time
+void ir_getSessionTime(int& hours, int& mins, int& secs);
 
 // Get car class id
 int ir_getClassId(int carIdx);
