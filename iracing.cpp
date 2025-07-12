@@ -321,6 +321,10 @@ irsdkCVar ir_LFSHshockDefl_ST("LFSHshockDefl_ST");    // float[6] LFSH shock def
 irsdkCVar ir_LFSHshockVel("LFSHshockVel");    // float[1] LFSH shock velocity (m/s)
 irsdkCVar ir_LFSHshockVel_ST("LFSHshockVel_ST");    // float[6] LFSH shock velocity at 360 Hz (m/s)
 
+irsdkCVar ir_TrackWetness("TrackWetness");	// int[1] Track wetness (0=Unknown,1=Dry,2=MostlyDry,3=VeryLightlyWet,4=LightlyWet,5=ModeratelyWet,6=VeryWet,7=ExtremelyWet) ()
+irsdkCVar ir_dcABS("dcABS");    // int[1] In car ABS settting ()
+irsdkCVar ir_dcTractionControl("dcTractionControl");    // int[1] In car Traction control setting ()
+
 Session ir_session;
 
 static bool parseYamlInt(const char *yamlStr, const char *path, int *dest)
@@ -408,6 +412,9 @@ ConnectionStatus ir_tick()
         sprintf(path, "WeekendInfo:WeekendOptions:NumCarClasses:");
         parseYamlInt(sessionYaml, path, &ir_session.numCarClasses);
 
+		sprintf(path, "WeekendInfo:WeekendOptions:NumJokerLaps:");
+		parseYamlInt(sessionYaml, path, &ir_session.numJokerLaps);
+
         // Current session type
         std::string sessionNameStr;
         sprintf( path, "SessionInfo:Sessions:SessionNum:{%d}SessionName:", ir_SessionNum.getInt() );
@@ -419,7 +426,7 @@ ConnectionStatus ir_tick()
         else if( sessionNameStr == "RACE" )
             ir_session.sessionType = SessionType::RACE;
         
-        std:string simMode;
+        std::string simMode;
         parseYamlStr(sessionYaml, "WeekendInfo:SimMode:", simMode);
         ir_session.isReplay = (simMode == "replay");
 
@@ -537,8 +544,8 @@ ConnectionStatus ir_tick()
             sprintf(path, "DriverInfo:Drivers:CarIdx:{%d}CarID:", carIdx);
             parseYamlInt(sessionYaml, path, &car.carID);
 
-            car.qualy.position = 0;
             car.practice.position = 0;
+            car.qualy.position = 0;
             car.race.position = 0;
         }
 
@@ -595,6 +602,9 @@ ConnectionStatus ir_tick()
 
                         sprintf(path, "SessionInfo:Sessions:SessionNum:{%d}ResultsPositions:Position:{%d}FastestTime:", session, pos);
                         parseYamlFloat(sessionYaml, path, &ir_session.cars[carIdx].practice.fastestTime);
+
+                        sprintf(path, "SessionInfo:Sessions:SessionNum:{%d}ResultsPositions:Position:{%d}JokerLapsComplete:", session, pos);
+                        parseYamlInt(sessionYaml, path, &ir_session.cars[carIdx].practice.JokerLapsComplete);
                     }     
                     else if (sessionNameStr == "QUALIFY") {
                         sprintf(path, "SessionInfo:Sessions:SessionNum:{%d}ResultsPositions:Position:{%d}ClassPosition:", session, pos);
@@ -608,6 +618,9 @@ ConnectionStatus ir_tick()
 
                         sprintf(path, "SessionInfo:Sessions:SessionNum:{%d}ResultsPositions:Position:{%d}FastestTime:", session, pos);
                         parseYamlFloat(sessionYaml, path, &ir_session.cars[carIdx].qualy.fastestTime);
+
+						sprintf(path, "SessionInfo:Sessions:SessionNum:{%d}ResultsPositions:Position:{%d}JokerLapsComplete:", session, pos);
+						parseYamlInt(sessionYaml, path, &ir_session.cars[carIdx].qualy.JokerLapsComplete);
                     } 
                     else if (sessionNameStr == "RACE") {
                         sprintf(path, "SessionInfo:Sessions:SessionNum:{%d}ResultsPositions:Position:{%d}ClassPosition:", session, pos);
@@ -621,6 +634,9 @@ ConnectionStatus ir_tick()
 
                         sprintf(path, "SessionInfo:Sessions:SessionNum:{%d}ResultsPositions:Position:{%d}FastestTime:", session, pos);
                         parseYamlFloat(sessionYaml, path, &ir_session.cars[carIdx].race.fastestTime);
+
+						sprintf(path, "SessionInfo:Sessions:SessionNum:{%d}ResultsPositions:Position:{%d}JokerLapsComplete:", session, pos);
+                        parseYamlInt(sessionYaml, path, &ir_session.cars[carIdx].race.JokerLapsComplete);
                     }
                 }
             }
@@ -788,8 +804,16 @@ int ir_getLapsRemaining() {
 }
 
 void ir_getSessionTimeRemaining(int& hours, int& mins, int& secs) {
-    double sessionTime = ir_SessionTimeRemain.getDouble();
+    double sessionTimeRemain = ir_SessionTimeRemain.getDouble();
     
+    hours = int(sessionTimeRemain / 3600.0);
+    mins = int(sessionTimeRemain / 60.0) % 60;
+    secs = (int)fmod(sessionTimeRemain, 60.0);
+}
+
+void ir_getSessionTime(int& hours, int& mins, int& secs) {
+    float sessionTime = ir_SessionTimeOfDay.getFloat();
+
     hours = int(sessionTime / 3600.0);
     mins = int(sessionTime / 60.0) % 60;
     secs = (int)fmod(sessionTime, 60.0);
