@@ -30,6 +30,7 @@ SOFTWARE.
 #include "Overlay.h"
 #include "Config.h"
 #include "OverlayDebug.h"
+#include "ctime"
 
 using namespace std;
 
@@ -37,12 +38,12 @@ class OverlayStandings : public Overlay
 {
 public:
 
-    const float DefaultFontSize = 15;
+    const float DefaultFontSize = 14;
     const int defaultNumTopDrivers = 3;
     const int defaultNumAheadDrivers = 5;
     const int defaultNumBehindDrivers = 5;
 
-    enum class Columns { POSITION, CAR_NUMBER, NAME, GAP, BEST, LAST, LICENSE, IRATING, CAR_BRAND, PIT, DELTA, L5, POSITIONS_GAINED };
+    enum class Columns { POSITION, CAR_NUMBER, NAME, GAP, BEST, LAST, LICENSE, IRATING, CAR_BRAND, PIT, DELTA, L5, POSITIONS_GAINED, TIRE, JOKER };
 
     OverlayStandings(Microsoft::WRL::ComPtr<ID3D11Device> d3dDevice, map<string, IWICFormatConverter*> carBrandIconsMap, bool carBrandIconsLoaded)
         : Overlay("OverlayStandings", d3dDevice)
@@ -67,6 +68,8 @@ protected:
     virtual void onEnable()
     {
         onConfigChanged();  // trigger font load
+        std::thread trackTempThread([this]() { trackTempCheck(); });
+        trackTempThread.detach();
     }
 
     virtual void onDisable()
@@ -74,7 +77,7 @@ protected:
         m_text.reset();
 
         // Clear car brand bitmap pointers on disable
-        for (auto pair : m_carIdToIconMap) {
+        for (auto& pair : m_carIdToIconMap) {
             pair.second->Release();
         }
         m_carIdToIconMap.clear();
@@ -101,8 +104,15 @@ protected:
         m_columns.add( (int)Columns::CAR_NUMBER, computeTextExtent( L"#999", m_dwriteFactory.Get(), m_textFormat.Get() ).x, fontSize/2 );
         m_columns.add( (int)Columns::NAME,       0, fontSize/2 );
 
+        if (ir_session.numJokerLaps > 0 && g_cfg.getBool(m_name, "show_joker_laps", true)) {
+            m_columns.add((int)Columns::JOKER, computeTextExtent(L" Jkr ", m_dwriteFactory.Get(), m_textFormatSmall.Get()).x, fontSize / 4);
+        }
+
         if (g_cfg.getBool(m_name, "show_pit", true))
             m_columns.add( (int)Columns::PIT,        computeTextExtent( L"P.Age", m_dwriteFactory.Get(), m_textFormat.Get() ).x, fontSize/2 );
+
+        if (g_cfg.getBool(m_name, "show_tire_compound", true))
+            m_columns.add( (int)Columns::TIRE,        computeTextExtent(L" Tire ", m_dwriteFactory.Get(), m_textFormatSmall.Get()).x, fontSize/4 );
 
         if (g_cfg.getBool(m_name, "show_license", true))
             m_columns.add( (int)Columns::LICENSE,    computeTextExtent( L"A 4.44", m_dwriteFactory.Get(), m_textFormatSmall.Get() ).x, fontSize/6 );
@@ -111,13 +121,13 @@ protected:
             m_columns.add( (int)Columns::IRATING,    computeTextExtent( L" 9.9k ", m_dwriteFactory.Get(), m_textFormatSmall.Get() ).x, fontSize/6 );
 
         if (g_cfg.getBool(m_name, "show_car_brand", true))
-            m_columns.add( (int)Columns::CAR_BRAND,  30, fontSize / 2);
+            m_columns.add( (int)Columns::CAR_BRAND,  30, fontSize/2 );
 
         if (g_cfg.getBool(m_name, "show_positions_gained", true))
-            m_columns.add( (int)Columns::POSITIONS_GAINED, computeTextExtent(L"▲99", m_dwriteFactory.Get(), m_textFormat.Get()).x, fontSize / 2);
+            m_columns.add( (int)Columns::POSITIONS_GAINED, computeTextExtent(L"▲99", m_dwriteFactory.Get(), m_textFormat.Get()).x, fontSize/2 );
 
         if (g_cfg.getBool(m_name, "show_gap", true))
-            m_columns.add( (int)Columns::GAP,        computeTextExtent(L"999.9", m_dwriteFactory.Get(), m_textFormat.Get()).x, fontSize / 2 );
+            m_columns.add( (int)Columns::GAP,        computeTextExtent(L"999.9", m_dwriteFactory.Get(), m_textFormat.Get()).x, fontSize/2 );
 
         if (g_cfg.getBool(m_name, "show_best", true))
             m_columns.add( (int)Columns::BEST,       computeTextExtent( L"99:99.999", m_dwriteFactory.Get(), m_textFormat.Get() ).x, fontSize/2 );
@@ -129,7 +139,7 @@ protected:
             m_columns.add( (int)Columns::DELTA,  computeTextExtent( L"99.99", m_dwriteFactory.Get(), m_textFormat.Get() ).x, fontSize/2 );
 
         if (g_cfg.getBool(m_name, "show_L5", true))
-            m_columns.add( (int)Columns::L5,     computeTextExtent(L"99.99.999", m_dwriteFactory.Get(), m_textFormat.Get()).x, fontSize / 2 );
+            m_columns.add( (int)Columns::L5,     computeTextExtent(L"99.99.999", m_dwriteFactory.Get(), m_textFormat.Get()).x, fontSize/2 );
     }
 
     virtual void onUpdate()
@@ -149,6 +159,8 @@ protected:
             bool    hasFastestLap = false;
             int     pitAge = 0;
             int     positionsChanged = 0;
+			int     tireCompound = -1;
+			int     jokerLaps = 0;
         };
 
         struct classBestLap {
@@ -183,7 +195,7 @@ protected:
             ci.pitAge       = ir_CarIdxLap.getInt(i) - car.lastLapInPits;
             ci.positionsChanged = ir_getPositionsChanged(i);
             ci.classIdx     = ir_getClassId(ci.carIdx);
-
+			ci.tireCompound = ir_CarIdxTireCompound.getInt(i);
             ci.best         = ir_CarIdxBestLapTime.getFloat(i);
             if (ir_session.sessionType == SessionType::RACE && ir_SessionState.getInt() <= irsdk_StateWarmup || ir_session.sessionType == SessionType::QUALIFY && ci.best <= 0) {
                 ci.best = car.qualy.fastestTime;
@@ -234,6 +246,21 @@ protected:
             }
 
             ci.l5 = conteo ? total / conteo : 0.0F;
+
+            if (ir_session.numJokerLaps > 0) {
+                if (ir_session.sessionType == SessionType::PRACTICE) {
+                    ci.jokerLaps = car.practice.JokerLapsComplete;
+                }
+                else if (ir_session.sessionType == SessionType::QUALIFY) {
+                    ci.jokerLaps = car.qualy.JokerLapsComplete;
+                }
+                else if (ir_session.sessionType == SessionType::RACE) {
+                    ci.jokerLaps = car.race.JokerLapsComplete;
+                }
+                else {
+                    ci.jokerLaps = 0;
+				}
+            }
 
             carInfo.push_back(ci);
         }
@@ -306,19 +333,26 @@ protected:
         const float4 licenseTextCol     = g_cfg.getFloat4( m_name, "license_text_col", float4(1,1,1,0.9f) );
         const float4 fastestLapCol      = g_cfg.getFloat4( m_name, "fastest_lap_col", float4(1,0,1,1) );
         const float4 pitCol             = g_cfg.getFloat4( m_name, "pit_col", float4(0.94f,0.8f,0.13f,1) );
-        const float4 deltaPosCol        = g_cfg.getFloat4( m_name, "delta_positive_col", float4(0.0f, 1.0f, 0.0f, 1.0f));
-        const float4 deltaNegCol        = g_cfg.getFloat4( m_name, "delta_negative_col", float4(1.0f, 0.0f, 0.0f, 1.0f));
-        const float  licenseBgAlpha     = g_cfg.getFloat( m_name, "license_background_alpha", 0.8f );
-        int  numTopDrivers        = g_cfg.getInt(m_name, "num_top_drivers", defaultNumTopDrivers);
-        int  numAheadDrivers      = g_cfg.getInt(m_name, "num_ahead_drivers", defaultNumAheadDrivers);
-        int  numBehindDrivers     = g_cfg.getInt(m_name, "num_behind_drivers", defaultNumBehindDrivers);
-        const bool   imperial           = ir_DisplayUnits.getInt() == 0;
+        const float4 deltaPosCol        = g_cfg.getFloat4( m_name, "delta_positive_col", float4(0.0f,1.0f,0.0f,1.0f) );
+        const float4 deltaNegCol        = g_cfg.getFloat4( m_name, "delta_negative_col", float4(1.0f,0.0f,0.0f,1.0f) );
+        const float licenseBgAlpha      = g_cfg.getFloat( m_name, "license_background_alpha", 0.8f );
+        int numTopDrivers               = g_cfg.getInt(m_name, "num_top_drivers", defaultNumTopDrivers);
+        int numAheadDrivers             = g_cfg.getInt(m_name, "num_ahead_drivers", defaultNumAheadDrivers);
+        int numBehindDrivers            = g_cfg.getInt(m_name, "num_behind_drivers", defaultNumBehindDrivers);
+        const bool imperial             = ir_DisplayUnits.getInt() == 0;
 
         const float xoff = 10.0f;
         const float yoff = 10;
         m_columns.layout( (float)m_width - 2*xoff );
         float y = yoff + lineHeight/2;
-        const float ybottom = m_height - lineHeight * 1.5f;
+        float ybottom = 0.0;
+
+        if (g_cfg.getBool( m_name, "show_weather", true) || (g_cfg.getBool(m_name, "show_current_time", true) || g_cfg.getBool(m_name, "show_session_time", true))) {
+            ybottom = m_height-(lineHeight*2)*1.2f;
+        }
+        else {
+            ybottom = m_height-lineHeight*1.5f;
+        }
 
         const ColumnLayout::Column* clm = nullptr;
         wchar_t s[512];
@@ -341,9 +375,19 @@ protected:
         clm = m_columns.get( (int)Columns::NAME );
         swprintf( s, _countof(s), L"Driver" );
         m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_LEADING );
+        
+        if (clm = m_columns.get( (int)Columns::JOKER )) {
+            swprintf( s, _countof(s), L" Jkr " );
+            m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+        }
 
         if (clm = m_columns.get( (int)Columns::PIT )) {
             swprintf( s, _countof(s), L"P.Age" );
+            m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+        }
+        
+        if (clm = m_columns.get( (int)Columns::TIRE )) {
+            swprintf( s, _countof(s), L"Tire" );
             m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
         }
 
@@ -357,41 +401,41 @@ protected:
             m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
         }
 
-        if (clm = m_columns.get((int)Columns::CAR_BRAND)) {
-            swprintf(s, _countof(s), L"  ");
-            m_text.render(m_renderTarget.Get(), s, m_textFormat.Get(), xoff + clm->textL, xoff + clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_TRAILING);
+        if (clm = m_columns.get( (int)Columns::CAR_BRAND )) {
+            swprintf( s, _countof(s), L"  " );
+            m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_TRAILING );
         }
 
-        if (clm = m_columns.get((int)Columns::POSITIONS_GAINED)) {
-            swprintf(s, _countof(s), L" ");
-            m_text.render(m_renderTarget.Get(), s, m_textFormat.Get(), xoff + clm->textL, xoff + clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER);
+        if (clm = m_columns.get( (int)Columns::POSITIONS_GAINED )) {
+            swprintf( s, _countof(s), L" " );
+            m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
         }
 
-        if (clm = m_columns.get((int)Columns::GAP)) {
-            swprintf(s, _countof(s), L"Gap");
-            m_text.render(m_renderTarget.Get(), s, m_textFormat.Get(), xoff + clm->textL, xoff + clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_TRAILING);
+        if (clm = m_columns.get( (int)Columns::GAP )) {
+            swprintf( s, _countof(s), L"Gap" );
+            m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_TRAILING );
         }
 
-        if (clm = m_columns.get((int)Columns::BEST )) {
+        if (clm = m_columns.get( (int)Columns::BEST )) {
             swprintf( s, _countof(s), L"Best" );
             m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_TRAILING );
         }
 
-        if (clm = m_columns.get((int)Columns::LAST ) ) {
-            swprintf(s, _countof(s), L"Last");
-            m_text.render(m_renderTarget.Get(), s, m_textFormat.Get(), xoff + clm->textL, xoff + clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_TRAILING);
+        if (clm = m_columns.get( (int)Columns::LAST )) {
+            swprintf( s, _countof(s), L"Last" );
+            m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_TRAILING );
         }
 
-        if (clm = m_columns.get((int)Columns::DELTA)) {
-            swprintf(s, _countof(s), L"Delta");
-            m_text.render(m_renderTarget.Get(), s, m_textFormat.Get(), xoff + clm->textL, xoff + clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_TRAILING);
+        if (clm = m_columns.get( (int)Columns::DELTA )) {
+            swprintf( s, _countof(s), L"Delta" );
+            m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_TRAILING );
         }
 
-        if (clm = m_columns.get((int)Columns::L5)) {
-            swprintf(s, _countof(s), L"Last 5 avg");
-            m_text.render(m_renderTarget.Get(), s, m_textFormat.Get(), xoff + clm->textL, xoff + clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_TRAILING);
+        if (clm = m_columns.get( (int)Columns::L5 )) {
+            swprintf( s, _countof(s), L"L5 Avg" );
+            m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_TRAILING );
         }
-
+        
         // Content
         
         int carsToDraw = ((ybottom - 2 * yoff) / lineHeight) -1 ;
@@ -502,6 +546,59 @@ protected:
                 m_brush->SetColor( textCol );
                 swprintf( s, _countof(s), L"%S", car.teamName.c_str() );
                 m_text.render( m_renderTarget.Get(), s, m_textFormat.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_LEADING );
+            }
+
+            // Joker Laps
+            if (clm = m_columns.get( (int)Columns::JOKER )) {
+                swprintf(s, _countof(s), L"%d", ci.jokerLaps);
+                r = { xoff+clm->textL, y-lineHeight/2+2, xoff+clm->textR, y+lineHeight/2-2 };
+                rr.rect = { r.left+1, r.top+1, r.right-1, r.bottom-1 };
+                rr.radiusX = 5;
+                rr.radiusY = 5;
+				if (ir_session.sessionType == SessionType::RACE) {
+                    if (ci.jokerLaps < ir_session.numJokerLaps) {
+                        m_brush->SetColor(float4(0.8f, 0.55f, 0.3f, 0.9f));
+                    }
+                    else if (ci.jokerLaps > ir_session.numJokerLaps) {
+                        m_brush->SetColor(float4(0.8f, 0.3f, 0.3f, 0.9f));
+                    }
+                    else {
+                        m_brush->SetColor(float4(0.3f, 0.8f, 0.3f, 0.9f));
+                    }
+                }
+                else {
+                    m_brush->SetColor(float4(0.7f, 0.7f, 0.7f, 0.6f));
+				}
+                m_renderTarget->FillRoundedRectangle(&rr, m_brush.Get());
+                m_brush->SetColor( float4(0, 0, 0, 1) );
+                m_text.render(m_renderTarget.Get(), s, m_textFormatSmall.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER);
+            }
+
+			// Tire compound
+            if (clm = m_columns.get( (int)Columns::TIRE )) {
+                r = { xoff+clm->textL, y-lineHeight/2+2, xoff+clm->textR, y+lineHeight/2-2 };
+                rr.rect = { r.left+1, r.top+1, r.right-1, r.bottom-1 };
+                rr.radiusX = 5;
+                rr.radiusY = 5;
+                char tcomp = '-';
+                switch (ci.tireCompound) {
+				case 0:
+                    m_brush->SetColor( float4(0.8f, 0.3f, 0.3f, 0.9f) );
+					tcomp = 'D';
+                    break;
+                case 1:
+                    m_brush->SetColor( float4(0.3f, 0.3f, 0.8f, 0.9f) );
+                    tcomp = 'W';
+                    break;
+                default:
+                    m_brush->SetColor( float4(0.7f, 0.7f, 0.7f, 0.6f) );
+                    tcomp = '-';
+					break;
+                }
+                swprintf( s, _countof(s), L"%C", tcomp );
+                m_renderTarget->FillRoundedRectangle(&rr, m_brush.Get());
+                m_brush->SetColor( float4(0, 0, 0, 1) );
+                m_text.render( m_renderTarget.Get(), s, m_textFormatSmall.Get(), xoff+clm->textL, xoff+clm->textR, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
             }
 
             // Pit age
@@ -664,31 +761,47 @@ protected:
         
         // Footer
         {
-            float trackTemp = ir_TrackTempCrew.getFloat();
-            char  tempUnit  = 'C';
-
-            if( imperial ) {
-                trackTemp = celsiusToFahrenheit( trackTemp );
-                tempUnit  = 'F';
+            float trackTemp_ = trackTemp;
+            char  tempUnit = 'C';
+            if (imperial) {
+                trackTemp_ = celsiusToFahrenheit(trackTemp_);
+                tempUnit = 'F';
             }
 
-            int hours, mins, secs;
+            int hourRem, minRem, secRem, hourNow, minNow, secNow = 0;
 
-            ir_getSessionTimeRemaining(hours, mins, secs);
+            ir_getSessionTimeRemaining(hourRem, minRem, secRem);
+
+            if (g_cfg.getBool(m_name, "show_clock_session_time", false)) {
+                ir_getSessionTime(hourNow, minNow, secNow);
+            } else {
+			    time_t now = time(nullptr);
+                struct tm* date = localtime(&now);
+                hourNow = date->tm_hour;
+                minNow = date->tm_min;
+                secNow = date->tm_sec;
+			}
+
             const int laps = max(ir_CarIdxLap.getInt(ir_session.driverCarIdx), ir_CarIdxLapCompleted.getInt(ir_session.driverCarIdx));
             const int remainingLaps = ir_getLapsRemaining();
             const int irTotalLaps = ir_SessionLapsTotal.getInt();
             int totalLaps = remainingLaps;
-            
+
+            string skiesStr = "Unknown";
+            string trackWetnessStr = "Unknown";
+            const int trackWetness = ir_TrackWetness.getInt();
+			const int skies = ir_Skies.getInt();
+
             if (irTotalLaps == 32767)
                 totalLaps = laps + remainingLaps;
             else
                 totalLaps = irTotalLaps;
 
-            m_brush->SetColor(float4(1,1,1,0.4f));
-            m_renderTarget->DrawLine( float2(0,ybottom),float2((float)m_width,ybottom),m_brush.Get() );
+            m_brush->SetColor(float4(1, 1, 1, 0.4f));
+            m_renderTarget->DrawLine(float2(0, ybottom), float2((float)m_width, ybottom), m_brush.Get());
 
             str.clear();
+            string str2;
             bool addSpaces = false;
 
             if (g_cfg.getBool(m_name, "show_SoF", true)) {
@@ -698,19 +811,23 @@ protected:
                 addSpaces = true;
             }
 
-            if (g_cfg.getBool(m_name, "show_track_temp", true)) {
-                if (addSpaces) {
-                    str += "       ";
-                }
-                str += std::vformat("Track Temp: {:.1f}{:c}", std::make_format_args(trackTemp, tempUnit));
-                addSpaces = true;
-            }
-
             if (g_cfg.getBool(m_name, "show_session_end", true)) {
                 if (addSpaces) {
                     str += "       ";
                 }
-                str += std::vformat("Session end: {}:{:0>2}:{:0>2}", std::make_format_args(hours, mins, secs));
+                str += std::vformat("Session End: {}:{:0>2}:{:0>2}", std::make_format_args(hourRem, minRem, secRem));
+                addSpaces = true;
+            }
+
+            if (g_cfg.getBool(m_name, "show_track_temp", true)) {
+                if (addSpaces) {
+                    str += "       ";
+                }
+				string trackTempStatus_ = "";
+                if (trackTempStatus != ' ') {
+					trackTempStatus_ += std::format(" {}", trackTempStatus);
+				}
+                str += std::vformat("Track Temp: {:.1f}{}{}", std::make_format_args(trackTemp_, tempUnit, trackTempStatus_));
                 addSpaces = true;
             }
 
@@ -722,12 +839,98 @@ protected:
                 addSpaces = true;
             }
 
-            y = m_height - (m_height-ybottom)/2;
-            m_brush->SetColor( headerCol );
-            m_text.render( m_renderTarget.Get(), toWide(str).c_str(), m_textFormat.Get(), xoff, (float)m_width-2*xoff, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER );
+            addSpaces = false;
+
+            if (g_cfg.getBool(m_name, "show_clock", true)) {
+                str2 += std::vformat("Time: {:0>2}:{:0>2}:{:0>2}", std::make_format_args(hourNow, minNow, secNow));
+                addSpaces = true;
+            }
+
+            if (g_cfg.getBool(m_name, "show_weather", true)) {
+                if (addSpaces) {
+                    str2 += "       ";
+                }
+                switch (skies) {
+                case 0:
+                    skiesStr = "Clear";
+                    break;
+                case 1:
+                    skiesStr = "Partly cloudy";
+                    break;
+                case 2:
+                    skiesStr = "Mostly cloudy";
+                    break;
+                case 3:
+                    skiesStr = "Overcast";
+                    break;
+                }
+
+                switch (trackWetness) {
+                case irsdk_TrackWetness_Dry:
+                    trackWetnessStr = "Dry";
+                    break;
+                case irsdk_TrackWetness_MostlyDry:
+                    trackWetnessStr = "Mostly dry";
+                    break;
+                case irsdk_TrackWetness_VeryLightlyWet:
+                    trackWetnessStr = "Very lightly wet";
+                    break;
+                case irsdk_TrackWetness_LightlyWet:
+                    trackWetnessStr = "Lightly wet";
+                    break;
+                case irsdk_TrackWetness_ModeratelyWet:
+                    trackWetnessStr = "Moderately wet";
+                    break;
+                case irsdk_TrackWetness_VeryWet:
+                    trackWetnessStr = "Very wet";
+                    break;
+                case irsdk_TrackWetness_ExtremelyWet:
+                    trackWetnessStr = "Extremely wet";
+                    break;
+                }
+                
+                str2 += std::format("Weather: {}, {}", skiesStr, trackWetnessStr);
+                addSpaces = true;
+            }
+
+            y = m_height - (m_height - ybottom) / 2;
+            m_brush->SetColor(headerCol);
+            if (!str2.empty()) {
+                m_text.render(m_renderTarget.Get(), toWide(str).c_str(), m_textFormat.Get(), xoff, (float)m_width - 2 * xoff, y - lineHeight / 2, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER);
+                m_text.render(m_renderTarget.Get(), toWide(str2).c_str(), m_textFormat.Get(), xoff, (float)m_width - 2 * xoff, y + lineHeight / 2, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER);
+            }
+            else {
+                m_text.render(m_renderTarget.Get(), toWide(str).c_str(), m_textFormat.Get(), xoff, (float)m_width - 2 * xoff, y, m_brush.Get(), DWRITE_TEXT_ALIGNMENT_CENTER);
+			}
         }
 
         m_renderTarget->EndDraw();
+    }
+
+	char trackTempStatus = ' ';
+    float trackTemp = ir_TrackTempCrew.getFloat();
+    bool isContinue = true;
+    virtual void trackTempCheck() {
+        while (isContinue) {
+			if (trackTemp < 0.1f) {
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+                trackTemp = ir_TrackTempCrew.getFloat();
+			}
+            else {
+                if (ir_TrackTempCrew.getFloat() > trackTemp) {
+                    trackTempStatus = '+';
+                    trackTemp = ir_TrackTempCrew.getFloat();
+                }
+                else if (ir_TrackTempCrew.getFloat() < trackTemp) {
+					trackTempStatus = '-';
+                    trackTemp = ir_TrackTempCrew.getFloat();
+                }
+                else {
+                    trackTempStatus = ' ';
+                }
+                std::this_thread::sleep_for(std::chrono::seconds(90));
+            }
+        }
     }
 
     virtual bool canEnableWhileNotDriving() const
