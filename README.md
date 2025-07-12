@@ -1,122 +1,38 @@
-# iRon - lightweight overlays for iRacing <!-- omit in toc -->
+## Notes
 
-This project provides a few lightweight overlays for iRacing. Included are: a relative display with optional minimap, a dashboard with fuel calculator, a throttle/brake input graph, and a standings display.
+I haven't attempted C++ before so some of the code may not be the finest, but it works (I think) and maybe
+someone else will find some of the new features useful.
 
-I created iRon for my own personal use. As such, its feature set is limited to what I considered sensible in practice given the way I use iRacing. I don't currently plan to extend it further. That said, I'm making it available in the hope it might be useful to others in the iRacing community, either for direct use or as a starting point for other homebrew overlays.
+Thanks to lespalt (https://github.com/lespalt/iRon), frmjar (https://github.com/frmjar/iRon)
+& diegoschneider (https://github.com/diegoschneider/iRon) for their previous work on this project.
 
-The project's code base aims to be small, easy to modify, and free of external dependencies.
+## What's new in this version?
 
-# Contents <!-- omit in toc -->
+- Added an optional clock in standings footer, shows local time by default or iRacing session time (show_clock_session_time);
 
-- [Where to Download](#where-to-download)
-- [Overlays](#overlays)
-  - [*Relative*](#relative)
-  - [*DDU*](#ddu)
-  - [*Inputs*](#inputs)
-  - [*Standings*](#standings)
-  - [*Cover*](#cover)
-- [Installing & Running](#installing--running)
-- [Configuration](#configuration)
-- [Building from source](#building-from-source)
-- [Dependencies](#dependencies)
-- [Bug reports and feature requests](#bug-reports-and-feature-requests)
-- [Donations](#donations)
+- Added an optional weather info in standings footer (e.g. "Partly cloudy / Lightly wet");
 
----
+- Added a pointless little temp change indictor (+/-) to the temp display in the standings footer, updates every 90 seconds;
 
-## Where to Download
+- Added an optional joker lap column to standing and relative overlays, showing the number of joker laps taken;
+    - It is only displayed if is is a race session, the number of joker laps in the race session is > 0 and show_joker_laps config is set to true;
+	- During the race it is either an orange or green box, depending on whether the driver has taken all required joker laps or not;
+	- During practice and qualifying it is just a grey box;
 
-The latest binary release can be found [here](https://github.com/lespalt/iRon/releases/latest).
+- Added an optional tire compound column to the standings overlay (dry / wet);
 
-## Overlays
+- Added optional config to display DDU speed in MPH while metric unit is set in iRacing and vice versa with speed_unit config;
+	- iRacing doesn't have any flexibility in what units to use, and I want speed in MPH (imperial) & temps in celcius (metric);
 
-### *Relative*
+- Added ABS and TC indicators to the DDU overlay, they blink on change as per the existing brake bias indicator;
 
-Like the *Relative* box in iRacing, but with additional information such as license, iRating, and laps driven since the last pit stop. You can also highlight your friends by adding their names to a buddy list.
+- The oil & water temp indicators in the DDU overlay now slowly flash when warning level is reached;
 
-At the top is an optional minimap. It can be set to either relative mode (own car fixed in the center) or absolute mode (start/finish line fixed in the center).
+- The DDU now displays tire temps (live when available) by default, can be changed back to tire wear by setting show_tire_wear config to true;
 
-![relative](relative.png?raw=true)
+- Fixed the "error" car icon, the corners weren't quite drawn correctly;
 
-### *DDU*
+- Car icon file names containing a "_" didn't get displayed, now they do;
 
-A dashboard that concentrates important pieces of information for which you would otherwise have to flip through various boxes in iRacing.
-
-The fuel calculator shows the estimated remaining laps, remaining amount of fuel, estimated fuel used per lap, estimated _additional_ fuel required to finish the race, and the fuel amount that is scheduled to be added on the next pit stop. To compute the estimated fuel consumption, the last 4 laps under green and without pit stops are taken into account, and a configurable safety margin is added. These parameters can be customized.
-
-![ddu](ddu.png?raw=true)
-
-### *Inputs*
-
-Shows throttle/brake/steering in a moving graph. I find it useful to practice consistent braking.
-
-![inputs](inputs.png?raw=true)
-
-### *Standings*
-
-Shows the standings of the entire field, including safety rating, iRating, and number of laps since the last pit stop ("pit age"). I usually leave this off by default and switch it on during cautions. Or glimpse at it pre-race to get a sense of the competition level.
-
-Like the "Relative" overlay, this will highlight buddies in green (Dale Jr. in the example below).
-
-![standings](standings.png?raw=true)
-
-### *Cover*
-
-No screenshot for this one, because all it is is a blank rectangle. Can be useful to cover up distracting in-game dashboards, like the one in the next-gen NASCAR.
-
----
-
-## Installing & Running
-
-The app does not require installation. Just copy the executable to a folder of your choice. Make sure the folder is not write protected, as iRon will attempt to save its configuration file in the working directory.
-
-To use it, simply run the executable. It doesn't matter whether you do this before or after launching iRacing. A console window will pop up, indicating that iRon is running. Once you're in the car in iRacing, the overlays should show up, and you can configure things to your liking. I recommend running iRacing in borderless window mode. Overlays *might* work in other modes as well, but I haven't tested it.
-
----
-
-## Configuration
-
-To place and resize the overlays, press ALT-j. This will enter a mode in which you can move overlays around with the mouse and resize them by dragging their bottom-right corner. Press ALT-j again to go back to normal mode.
-
-Overlays can be switched on and off at runtime using the hotkeys displayed during startup. All hotkeys are configurable.
-
-Certain aspects of the overlays, such as colors, font types, sizes etc. can be customized. To do that, open the file **config.json** that iRon created and experiment by editing the (hopefully mostly self-explanatory) parameters. You can do that while the app is running -- the changes will take effect immediately whenever the file is saved.
-
-_Note that currently, the config file will be created only after the overlays have been "touched" for the first time, usually by dragging or resizing them._
-
-##### Fuel calculator
-Fuel in laps = ( Remaining_Fuel - Reserve Fuel ) / (Average_Use x Fuel_Estimate_Factor) 
-
-Vars: 
-fuel_estimate_avg_green_laps: Amount of laps to average in the lap calculation
-fuel_estimate_factor: Amount to multiply the fuel use for (coarse safety margin)
-fuel_reserve_margin: Amount of fuel to reserve in the calculations
-
----
-
-## Building from source
-
-This app is built with Visual Studio 2022 Community version. The project/solution files should work out of the box. Depending on your Visual Studio setup, you may need to install additional prerequisites (static libs) needed to build DirectX applications.
-
----
-
-## Dependencies
-
-There are no runtime dependencies other than standard Windows components like DirectX.  Those should already be present on most if not all systems that can run iRacing.
-
-Build dependencies (most notably the iRacing SDK and picojson) are kept to a minimum and are included in the repository.
-
----
-
-## Bug reports and feature requests
-
-If you encounter a problem, please file a github issue and I'll do my best to address it. Pull requests with fixes are welcome too, of course.
-
-If you'd like to see a specific feature added, feel free to file a github issue as well. If it's something small, I may actually get to it :-) No promises though, as unfortunately the time I can spend on this project is quite limited.
-
----
-
-## Donations
-
-If you like this project enough to wonder whether you can contribute financially: first of all, thank you! I'm not looking for donations, but **please consider giving to Ukraine-related charities instead**.
+- Some random little edits to get rid of some compiler warnings etc.
 
